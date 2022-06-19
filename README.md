@@ -4,7 +4,9 @@ A port of BBC Basic for Z80 to the Agon
 
 ### What is the Agon
 
-https://www.thebyteattic.com/p/cerberus-2080.html
+Agon is a modern, fully open-source, 8-bit microcomputer and microcontroller in one small, low-cost board. As a computer, it is a standalone device that requires no host PC: it puts out its own video (VGA), audio (2 identical mono channels), accepts a PS/2 keyboard and has its own mass-storage in the form of a µSD card.
+
+https://www.thebyteattic.com/p/agon.html
 
 ### What is BBC Basic for Z80?
 
@@ -14,23 +16,17 @@ As an aside, R.T.Russell still supports BBC Basic, and has ported it for a numbe
 
 ### Why am I doing this?
 
-### The Challenges
+I've worked with Bernardo Kastrup aka The Byte Attic on another one of his projects, porting BBC Basic for Z80 to the Cerberus 2080. When he decided to design the Agon, he asked me whether I'd be interested in providing the firmware for it.
 
-The foundation of this port is R.T.Russell's original BBC Basic for Z80 code (for CP/M), with the CP/M specific code stripped out. This foundation code is just pure BASIC interpreter with no graphics, sound or file I/O support.
+### Assembling and Running
 
-### Assembling
-
-### Running
-
-### Releases
-
-I'll dump significant updates as executable bin files in the [releases](releases) folder
+This project is designed to be assembled and linked using the [Zilog ZDS II toolkit](https://t.co/dT5DHWYcB5). You will also need a ZUSBSC00100ZACG USB Smart Cable to connect to the Agon in order to upload this to download and run.
 
 ### License
 
 This code is distributable under the terms of a zlib license. Read the file [COPYING](COPYING) for more information.
 
-The code, as originally written by R.T. Russell and [downloaded from David Given's GitHub page](https://github.com/davidgiven/cpmish/tree/master/third_party/bbcbasic), has been modified slightly, either for compatibility reasons when assembling using sjasmplus, or for development reasons for this release:
+The BASIC interpreter, as originally written by R.T. Russell and [downloaded from David Given's GitHub page](https://github.com/davidgiven/cpmish/tree/master/third_party/bbcbasic), has been modified slightly, either for compatibility reasons when assembling using sjasmplus, or for development reasons for this release:
 
 The original files are: [eval.z80](eval.z80), [exec.z80](exec.z80), [fpp.z80](fpp.z80), [patch.z80](patch.z80), [ram.z80](ram.z80) and [sorry.z80](sorry.z80).
 
