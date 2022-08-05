@@ -1,23 +1,18 @@
 <project type="Executable" project-type="Assembly Only" configuration="Debug" created-by="d:5.3.0:19052909" modified-by="d:5.3.0:19052909" ZDSII="ZDSII - eZ80Acclaim! 5.3.4 (Build 19112104)">
-<cpu>eZ80L92</cpu>
+<cpu>eZ80F92</cpu>
 
 <!-- file information -->
 <files>
-<file filter-key="">.\serial.asm</file>
-<file filter-key="">.\sorry.asm</file>
-<file filter-key="">.\ram.asm</file>
-<file filter-key="">.\patch.asm</file>
-<file filter-key="">.\misc.asm</file>
-<file filter-key="">.\macros.inc</file>
-<file filter-key="">.\equs.inc</file>
+<file filter-key="">.\eval.asm</file>
 <file filter-key="">.\exec.asm</file>
 <file filter-key="">.\fpp.asm</file>
-<file filter-key="">.\init.asm</file>
-<file filter-key="">.\main.asm</file>
-<file filter-key="">.\eval.asm</file>
-<file filter-key="">.\editor.asm</file>
-<file filter-key="">.\interrupts.asm</file>
 <file filter-key="">.\gpio.asm</file>
+<file filter-key="">.\main.asm</file>
+<file filter-key="">.\misc.asm</file>
+<file filter-key="">.\patch.asm</file>
+<file filter-key="">.\ram.asm</file>
+<file filter-key="">.\sorry.asm</file>
+<file filter-key="">.\init.asm</file>
 </files>
 
 <!-- configuration information -->
@@ -26,20 +21,20 @@
 <tools>
 <tool name="Assembler">
 <options>
-<option name="define" type="string" change-action="assemble">_EZ80=1,_SIMULATE=1</option>
-<option name="include" type="string" change-action="assemble"></option>
+<option name="define" type="string" change-action="assemble">_EZ80ACCLAIM!=1,_SIMULATE=1</option>
+<option name="include" type="string" change-action="assemble">..\MOS\src</option>
 <option name="list" type="boolean" change-action="none">true</option>
 <option name="listmac" type="boolean" change-action="none">false</option>
 <option name="name" type="boolean" change-action="none">true</option>
 <option name="pagelen" type="integer" change-action="none">0</option>
 <option name="pagewidth" type="integer" change-action="none">80</option>
 <option name="quiet" type="boolean" change-action="none">true</option>
-<option name="sdiopt" type="boolean" change-action="compile">true</option>
+<option name="sdiopt" type="boolean" change-action="compile">false</option>
 </options>
 </tool>
 <tool name="Debugger">
 <options>
-<option name="target" type="string" change-action="rebuild">eZ80DevPlatform_L92_RAM</option>
+<option name="target" type="string" change-action="rebuild">eZ80F92_AGON_Flash</option>
 <option name="debugtool" type="string" change-action="none">USBSmartCable</option>
 <option name="usepageerase" type="boolean" change-action="none">true</option>
 </options>
@@ -52,9 +47,9 @@
 <option name="includeserial" type="boolean" change-action="none">false</option>
 <option name="offset" type="integer" change-action="none">0</option>
 <option name="snenable" type="boolean" change-action="none">false</option>
-<option name="sn" type="string" change-action="none">0</option>
-<option name="snsize" type="integer" change-action="none">0</option>
-<option name="snstep" type="integer" change-action="none">0</option>
+<option name="sn" type="string" change-action="none">000000000000000000000000</option>
+<option name="snsize" type="integer" change-action="none">1</option>
+<option name="snstep" type="integer" change-action="none">000000000000000000000000</option>
 <option name="snstepformat" type="integer" change-action="none">0</option>
 <option name="snaddress" type="string" change-action="none">0</option>
 <option name="snformat" type="integer" change-action="none">0</option>
@@ -81,7 +76,10 @@
 </tool>
 <tool name="Linker">
 <options>
-<option name="directives" type="string" change-action="build">SEQUENCE __VECTORS,CODE,LORAM</option>
+<option name="directives" type="string" change-action="build">SEQUENCE __VECTORS, CODE, LORAM
+COPY __VECTORS RAM
+COPY CODE RAM
+COPY LORAM RAM</option>
 <option name="createnew" type="boolean" change-action="build">true</option>
 <option name="exeform" type="string" change-action="build">OMF695,INTEL32</option>
 <option name="linkctlfile" type="string" change-action="build"></option>
@@ -103,9 +101,9 @@
 <option name="fplib" type="string" change-action="build">None</option>
 <option name="useadddirectives" type="boolean" change-action="build">true</option>
 <option name="linkconfig" type="string" change-action="build">Standard</option>
-<option name="flashinfo" type="string" change-action="build">0-FF</option>
-<option name="ram" type="string" change-action="build">B80000-BFFFFF</option>
-<option name="rom" type="string" change-action="build">000000-0FFFFF</option>
+<option name="flashinfo" type="string" change-action="build">000000-0000FF</option>
+<option name="ram" type="string" change-action="build">040000-0BFFFF</option>
+<option name="rom" type="string" change-action="build">000000-01FFFF</option>
 <option name="extio" type="string" change-action="build">000000-00FFFF</option>
 <option name="intio" type="string" change-action="build">000000-0000FF</option>
 </options>
@@ -116,7 +114,7 @@
 <tools>
 <tool name="Assembler">
 <options>
-<option name="define" type="string" change-action="assemble">_EZ80=1,_SIMULATE=1</option>
+<option name="define" type="string" change-action="assemble">_EZ80ACCLAIM!=1,_SIMULATE=1</option>
 <option name="include" type="string" change-action="assemble"></option>
 <option name="list" type="boolean" change-action="none">true</option>
 <option name="listmac" type="boolean" change-action="none">false</option>
@@ -129,7 +127,7 @@
 </tool>
 <tool name="Debugger">
 <options>
-<option name="target" type="string" change-action="rebuild">eZ80DevPlatform_L92_RAM</option>
+<option name="target" type="string" change-action="rebuild">eZ80F92_AGON_Flash</option>
 <option name="debugtool" type="string" change-action="none">USBSmartCable</option>
 <option name="usepageerase" type="boolean" change-action="none">true</option>
 </options>
@@ -193,9 +191,9 @@
 <option name="fplib" type="string" change-action="build">None</option>
 <option name="useadddirectives" type="boolean" change-action="build">false</option>
 <option name="linkconfig" type="string" change-action="build">Standard</option>
-<option name="flashinfo" type="string" change-action="build">0-FF</option>
-<option name="ram" type="string" change-action="build">B80000-BFFFFF</option>
-<option name="rom" type="string" change-action="build">000000-0FFFFF</option>
+<option name="flashinfo" type="string" change-action="build">000000-0000FF</option>
+<option name="ram" type="string" change-action="build">020000-09FFFF</option>
+<option name="rom" type="string" change-action="build">000000-01FFFF</option>
 <option name="extio" type="string" change-action="build">000000-00FFFF</option>
 <option name="intio" type="string" change-action="build">000000-0000FF</option>
 </options>

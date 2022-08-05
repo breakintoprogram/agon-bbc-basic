@@ -1,4 +1,4 @@
-# ago-bbc-basic
+# agon-bbc-basic
 
 A port of BBC Basic for Z80 to the Agon
 
@@ -21,6 +21,10 @@ I've worked with Bernardo Kastrup aka The Byte Attic on another one of his proje
 ### Assembling and Running
 
 This project is designed to be assembled and linked using the [Zilog ZDS II toolkit](https://t.co/dT5DHWYcB5). You will also need a ZUSBSC00100ZACG USB Smart Cable to connect to the Agon in order to upload this to download and run.
+
+NB:
+- It currently compiles to load in RAM at &40000, so can be downloaded once compiled.
+- Source level debugging not working correctly as this runs in a 64K Z80 segment in the eZ80 RAM
 
 ### License
 
