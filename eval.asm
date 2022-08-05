@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	26/07/2022
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -12,6 +12,7 @@
 ; 08/03/1987:	Version 3.0
 ; 30/09/1992:	INSTR bug fixed
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
+; 26/07/2022:	Fixed bug with INT caused when converting source to run on ZDS
 
 			.ASSUME	ADL = 0
 
@@ -47,7 +48,7 @@
 				
 			XREF	ADVAL
 			XREF	FN
-			XREF	INT_
+;			XREF	INT_
 			XREF	POINT
 			XREF	USR
 			XREF	SYNTAX
@@ -126,7 +127,7 @@ FUNTBL:			DW    DECODE          ;Line number
 			DW    GET             ;GET
 			DW    INKEY           ;INKEY
 			DW    INSTR           ;INSTR(
-			DW    INT_             ;INT
+			DW    INT_            ;INT
 			DW    LEN             ;LEN
 			DW    LN              ;LN
 			DW    LOG             ;LOG
@@ -807,7 +808,7 @@ SGN:			LD      A,28
 ;INT - Floor function
 ;Result is integer numeric.
 ;
-INT:			LD      A,23
+INT_:			LD      A,23
 			JR      FPPN
 ;
 ;SQR - square root
