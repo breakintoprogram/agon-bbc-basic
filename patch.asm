@@ -2,15 +2,18 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	03/08/2022
 ;
 ; Modinfo:
+; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
+; 03/08/2022:	OSLOAD and OSSAVE now execute code in MOS, added * commands, implemented some file I/O commands
 			
 			.ASSUME	ADL = 0
 				
 			INCLUDE	"equs.inc"
 			INCLUDE "macros.inc"
-
+			INCLUDE "mos_api.inc"	; In MOS/src
+		
 			SEGMENT CODE
 				
 			XDEF	OSWRCH
@@ -50,14 +53,9 @@
 			XDEF	OSLOAD
 			XDEF	OSSAVE
 
-			XREF	Edit_Line
 			XREF	ASC_TO_NUMBER
-			XREF	TX
-			XREF	RX
 			XREF	RAM_START
 			XREF	RAM_END
-			XREF	TIME
-			XREF	KEY_CODE
 			XREF	FLAGS
 			XREF	ESCAPE
 			XREF	USER
@@ -67,29 +65,42 @@
 			XREF	EXPRI
 			XREF	COMMA
 			XREF	XEQ
-			XREF	CHARPOS_X
-			XREF	CHARPOS_Y
+			XREF	CRTONULL
+			XREF	NULLTOCR
+			XREF	CRLF
 
-; OSWRCH: Write a character out to the ESP32 VDU handler
+; OSWRCH: Write a character out to the ESP32 VDU handler via the MOS
 ; A: Character to write
 ;
-OSWRCH:			JP	TX
+OSWRCH:			RST.LIS	10h		; This is at odds with the manual - assembles to RST.L
+			RET
 
 ; OSRDCH: Read a character in from the ESP32 keyboard handler
 ;
-OSRDCH:			LD	A, (KEY_CODE)	; Read keyboard
+OSRDCH:			MOSCALL	mos_getkey
 			OR	A 		
 			JR	Z, OSRDCH	; Loop until key is pressed
-			PUSH	AF
-$$:			LD	A, (KEY_CODE)	; And same again
-			OR	A 
-			JR	NZ, $B 		; But loop until key is released
-			POP 	AF  		; Return the keycode
 			RET
 
 ; OSLINE: Invoke the line editor
 ;
-OSLINE:			JP	Edit_Line 	
+OSLINE:			PUSH	IY
+			PUSH	HL			; Buffer address
+			LD	BC, 255			; Buffer length
+			MOSCALL	mos_editline		; Call the MOS line editor
+			POP	HL			; Pop the address
+			POP	IY
+			PUSH	AF			; Stack the return value (key pressed)
+			CALL	NULLTOCR		; Turn the 0 character to a CR
+			CALL	CRLF			; Display CRLF
+			POP	AF
+			CP	1Bh			; Check for Escape
+			JR	NZ, $F
+			CALL	ESCSET
+			CALL	LTRAP			
+$$:			XOR	A			; Return A = 0			
+			RET
+;			JP	Edit_Line 			
 
 ; CLRSCN: clears the screen.
 ;
@@ -107,28 +118,42 @@ MODE:			CALL    EXPRI
 
 ; PUTIME: set current time to DE:HL, in centiseconds.
 ;
-PUTIME:			LD	(TIME + 2), DE
-			LD	(TIME + 0), HL
+PUTIME:			PUSH 	IX
+			LD	C, sysvar_time
+			MOSCALL	mos_sysvars
+			LD.LIL	(IX + 0), L
+			LD.LIL	(IX + 1), H
+			LD.LIL	(IX + 2), E
+			LD.LIL	(IX + 3), D
+			POP	IX
 			RET
 
-; GETIME: return current time in DE:HL, in centiseconds.
+; GETIME: return current time in DE:HL, in centiseconds
 ;
-GETIME:			LD	DE, (TIME + 2)
-			LD	HL, (TIME + 0)
+GETIME:			PUSH 	IX
+			MOSCALL	mos_sysvars
+			LD.LIL	L, (IX + 0)
+			LD.LIL	H, (IX + 1)
+			LD.LIL	E, (IX + 2)
+			LD.LIL	D, (IX + 3)
+			POP	IX
 			RET
 
 ; PUTCSR: move to cursor to x=DE, y=HL
 ;
-PUTCSR:			LD	D, L				; E: X, D: Y
-			LD	(CHARPOS_X), DE
+PUTCSR:			LD	A, 1Fh				; TAB
+			RST.LIS	10h
+			LD	A, E				; X
+			RST.LIS 10h
+			LD	A, L				; Y
+			RST.LIS 10h
 			RET
 
 ; GETCSR: return cursor position in x=DE, y=HL
+; TODO: Need to get value from MOS/VDP
 ;
-GETCSR:			LD	DE, (CHARPOS_X)			; E: X, D: Y
-			LD	L, D 					
-			LD	H, 0				; HL: Y
-			LD	D, H 				; DE: X
+GETCSR:			LD 	DE, 0
+			LD	HL, 0
 			RET
 
 ; PROMPT: output the input prompt
@@ -143,7 +168,7 @@ PROMPT: 		LD	A,'>'
 ;           If carry set A = character
 ; Destroys: A,H,L,F
 ;
-OSKEY: 			LD	A, (KEY_CODE)	; Read keyboard
+OSKEY: 			MOSCALL	mos_getkey	; Read keyboard
 			OR	A		; If we have a character
 			JR	NZ, $F		; Then process it
 			LD	A,H		; Check if HL is 0 (this is passed by INKEY() function
@@ -164,7 +189,7 @@ ESCSET: 		PUSH    HL
 ESCDIS: 		POP     HL
         		RET	
 ;
-ESCTEST:		LD	A, (KEY_CODE)
+ESCTEST:		MOSCALL	mos_getkey
 			CP	1BH		; ESC	
 			JR	Z,ESCSET
 			RET
@@ -261,18 +286,52 @@ UPPRC:  		AND     7FH
 			RET					
 
 ; Each command has bit 7 of the last character set, and is followed by the address of the handler
+; These must be in alphabetical order
 ;
-COMDS:  		DB	'CA','T'+80h	; CAT
+COMDS:  		DB	'BY','E'+80h		; BYE
+			DW	STAR_BYE
+			DB	'CA','T'+80h		; CAT
 			DW	STAR_CAT
+			DB	'C', 'D'+80h		; CD
+			DW	STAR_CD
+			DB	'ERAS','E'+80h		; ERASE
+			DW	STAR_ERASE
 			DB	'F','X'+80h		; FX
 			DW	STAR_FX
 			DB	0FFH	
+			
+; *BYE
+;
+STAR_BYE:		RST.LIS	00h			; Reset MOS
 
 ; *CAT / *.
 ;
 STAR_DOT:
-STAR_CAT:		RET
-	
+STAR_CAT:		PUSH	IY
+			MOSCALL	mos_dir
+			POP	IY
+			RET
+			
+; *CD path
+;
+STAR_CD:		PUSH 	IY
+			CALL	SKIPSP
+			CALL	CRTONULL
+			MOSCALL	mos_cd
+			CALL	NULLTOCR	
+			POP	IY
+			RET
+			
+; *ERASE filename
+;
+STAR_ERASE:		PUSH	IY
+			CALL	SKIPSP
+			CALL	CRTONULL
+			MOSCALL	mos_del
+			CALL	NULLTOCR
+			POP	IY
+			RET
+			
 ; OSCLI FX n
 ;
 STAR_FX:		CALL	ASC_TO_NUMBER	; C: FX #
@@ -306,7 +365,12 @@ OSBYTE_13:		HALT
 ;  Outputs: Carry reset indicates no room for file.
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSLOAD:			RET
+OSLOAD:			CALL	CRTONULL
+			MOSCALL	mos_load
+			PUSH	AF
+			CALL	NULLTOCR
+			POP	AF
+			RET
 
 ;OSSAVE - Save an area of memory to a file.
 ;   Inputs: HL addresses filename (term CR)
@@ -314,7 +378,142 @@ OSLOAD:			RET
 ;           BC = length of data to save (bytes)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSSAVE:			RET
+OSSAVE:			CALL	CRTONULL
+			MOSCALL	mos_save
+			PUSH	AF
+			CALL 	NULLTOCR
+			POP	AF
+			RET
+			
+;OSCALL - Intercept page &FF calls and provide an alternative address
+;
+;&FFF7:	OSCLI	Execute *command.
+;&FFF4:	OSBYTE	Various byte-wide functions.
+;&FFF1:	OSWORD	Various control block functions.
+;&FFEE:	OSWRCH	Write character to output stream.
+;&FFE7:	OSNEWL	Write NewLine to output stream.
+;&FFE3:	OSASCI	Write character or NewLine to output stream.
+;&FFE0:	OSRDCH	Wait for character from input stream.
+;&FFDD:	OSFILE	Perform actions on whole files or directories.
+;&FFDA:	OSARGS	Read and write information on open files or filing systems.
+;&FFD7:	OSBGET	Read a byte from an a channel.
+;&FFD4:	OSBPUT	Write a byte to a channel.
+;&FFD1:	OSGBPB	Read and write blocks of data.
+;&FFCE:	OSFIND	Open or close a file.
+;
+OSCALL:			LD	HL, OSCALL_TABLE
+OSCALL_1:		LD	A, (HL)
+			INC	HL
+			CP	FFh
+			RET	Z 
+			CP	A, IYL
+			JR	Z, OSCALL_2
+			RET	NC
+			INC	HL 
+			INC	HL 
+			JR	OSCALL_1
+OSCALL_2:		LD	A, (HL)
+			LD	IYL, A 
+			INC	HL 
+			LD	A, (HL) 
+			LD	IYH, A 
+			RET
+OSCALL_TABLE:		DB 	D4h
+			DW 	OSBPUT
+			DB 	D7h
+			DW 	OSBGET
+			DB 	EEh
+			DW 	OSWRCH
+			DB	F4h
+			DW 	OSBYTE
+			DB	FFh	
+
+; OSOPEN
+; HL: Pointer to path
+;  F: C Z
+;     x x OPENIN
+; 	  OPENOUT
+;     x	  OPENUP
+; Returns:
+;  A: Filehandle, 0 if cannot open
+;
+OSOPEN:			LD	C, fa_read
+			JR	Z, $F
+			LD	C, fa_write | fa_open_append
+			JR	C, $F
+			LD	C, fa_write | fa_create_always
+$$:			PUSH	IY
+			MOSCALL	mos_fopen
+			POP	IY
+			RET
+
+;OSSHUT - Close disk file(s).
+; E = file channel
+;  If E=0 all files are closed (except SPOOL)
+; Destroys: A,B,C,D,E,H,L,F
+;
+OSSHUT:			LD	C, E
+			PUSH	IY
+			MOSCALL	mos_fclose
+			POP	IY
+			RET
+	
+; OSBGET - Read a byte from a random disk file.
+;  E = file channel
+; Returns
+;  A = byte read
+;  Carry set if LAST BYTE of file
+; Destroys: A,B,C,F
+;
+OSBGET:			LD	C, E
+			PUSH	IY
+			MOSCALL	mos_fgetc
+			POP	IY
+			RET
+	
+; OSBPUT - Write a byte to a random disk file.
+;  E = file channel
+;  A = byte to write
+; Destroys: A,B,C,F
+;	
+OSBPUT:			LD	C, E
+			LD	B, A
+			PUSH	IY
+			MOSCALL	mos_fputc
+			POP	IY
+			RET
+
+; OSSTAT - Read file status
+;  E = file channel
+; Returns
+;  F: Z flag set - EOF
+;  A: If Z then A = 0
+; Destroys: A,D,E,H,L,F
+;
+OSSTAT:			RET
+	
+; GETPTR - Return file pointer.
+;    E = file channel
+; Returns:
+; DEHL = pointer (0-&7FFFFF)
+; Destroys: A,B,C,D,E,H,L,F
+;
+GETPTR:			RET
+
+; PUTPTR - Update file pointer.
+;    A = file channel
+; DEHL = new pointer (0-&7FFFFF)
+; Destroys: A,B,C,D,E,H,L,F
+;
+PUTPTR:			RET
+	
+; GETEXT - Find file size.
+;    E = file channel
+; Returns:
+; DEHL = file size (0-&800000)
+; Destroys: A,B,C,D,E,H,L,F
+;
+GETEXT:			RET	
 
 ; GCOL mode,R,G,B
 ;
@@ -395,14 +594,4 @@ GETSCHR:
 POINT:
 DRAW:
 SOUND:
-OSBPUT:
-OSBGET:
-OSSTAT:
-OSSHUT:
-OSOPEN:
-OSCALL:
-GETPTR:
-PUTPTR:
-GETEXT:
-RESET:
-			RET
+RESET:			RET
