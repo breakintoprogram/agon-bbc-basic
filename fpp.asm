@@ -4,19 +4,19 @@
 ; Author:	(C) Copyright  R.T.Russell  1986
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	26/07/2022
 ;
 ; Modinfo:
 ; 26/10/1986:	Version 0.0
 ; 14/12/1988:	Vesion 0.1 (Bug Fix)
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
+; 26/07/2022:	Fixed bug with INT caused when converting source to run on ZDS
 
 			.ASSUME	ADL = 0
 
 			SEGMENT CODE
 				
 			XDEF	FPP
-			XDEF	INT_
 ;
 ;BINARY FLOATING POINT REPRESENTATION:
 ;   32 BIT SIGN-MAGNITUDE NORMALIZED MANTISSA
