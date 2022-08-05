@@ -2,10 +2,12 @@
 ; Title:	BBC Basic for AGON - Miscellaneous helper functions
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	26/07/2022
 ;
 ; Modinfo:
+; 26/07/2022:	Added NULLTOCR and CRTONULL
 
+			INCLUDE	"equs.inc"
 			INCLUDE	"macros.inc"
 
 			.ASSUME	ADL = 0
@@ -16,6 +18,8 @@
 			XDEF	DEC_D_NZ
 			XDEF	DEC_E_NZ
 			XDEF	SWITCH_A
+			XDEF	NULLTOCR
+			XDEF	CRTONULL
 				
 			XREF	OSWRCH
 
@@ -172,3 +176,25 @@ HLDE_TO_FPP:		PUSH	DE
 			EXX 
 			LD	C, 0			; Exponent
 			RET 
+
+; Convert the buffer to a null terminated string and back
+;			
+NULLTOCR:		PUSH 	BC
+			LD	B, 0
+			LD	C, CR 
+			JR	CRTONULL0
+;			
+CRTONULL:		PUSH	BC
+			LD	B, CR
+			LD	C, 0	
+;			
+CRTONULL0:		PUSH	HL
+CRTONULL1:		LD	A, (HL)
+			CP 	B 
+			JR	Z, CRTONULL2
+			INC	HL 
+			JR	CRTONULL1
+CRTONULL2:		LD	(HL), C
+			POP 	HL 
+			POP	BC
+			RET
