@@ -6,9 +6,10 @@
 ; Author:	(C) Copyright  R.T.Russell 31-12-1983
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	03/08/2022
 ;
 ; Modinfo:
+; 03/08/2022:	Removed TIME and KEY_CODE - now in MOS
 
 			.ASSUME	ADL = 0
 
@@ -44,12 +45,12 @@
 			XDEF	INCREM
 			
 			XDEF	FLAGS
-			XDEF	TIME
-			XDEF	KEY_CODE
+;			XDEF	TIME
+;			XDEF	KEY_CODE
 			XDEF	CURSOR_X
 			XDEF	CURSOR_Y
-			XDEF	CHARPOS_X
-			XDEF	CHARPOS_Y
+;			XDEF	CHARPOS_X
+;			XDEF	CHARPOS_Y
 			
 			XDEF	INV_START
 			XDEF	RAM_START
@@ -93,13 +94,13 @@ INCREM:			DS		1               ; AUTO INCREMENT
 ; Extra Agon-implementation specific system variables
 ;
 FLAGS:			DS		1		; Flags: B7=ESC PRESSED, B6=ESC DISABLED, B4=COPY PRESSED
-TIME:			DS		4
-KEY_CODE:		DS		1
-VDU_BUFFER:		DS		8		; 8 bytes of temporary storage for the VDU buffer
+;TIME:			DS		4
+;KEY_CODE:		DS		1
+;VDU_BUFFER:		DS		8		; 8 bytes of temporary storage for the VDU buffer
 CURSOR_X:		DS		1
 CURSOR_Y:		DS		1
-CHARPOS_X:		DS		1
-CHARPOS_Y		DS		1
+;CHARPOS_X:		DS		1
+;CHARPOS_Y		DS		1
 ;
 ; This must be at the end
 ;
