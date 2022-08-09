@@ -2,11 +2,13 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/08/2022
+; Last Updated:	07/08/2022
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
 ; 03/08/2022:	OSLOAD and OSSAVE now execute code in MOS, added * commands, implemented some file I/O commands
+; 05/08/2022:	Implemented OSSTAT, assumes MOS will save registers in file I/O commands
+; 07/08/2022:	Added CLG, COLOUR, and emulated palette mode for COLOUR and GCOL, fixed GETSCR
 			
 			.ASSUME	ADL = 0
 				
@@ -19,8 +21,6 @@
 			XDEF	OSWRCH
 			XDEF	OSLINE
 			XDEF	ESCSET
-			XDEF 	CLRSCN
-			XDEF	MODE
 			XDEF	PUTIME
 			XDEF	GETIME
 			XDEF	PUTCSR
@@ -33,12 +33,7 @@
 			XDEF	OSINIT
 			XDEF	OSCLI
 			XDEF	GETSCHR
-			
-			XDEF	GCOL
-			XDEF	MOVE
-			XDEF	PLOT
 			XDEF	POINT
-			XDEF	DRAW
 			XDEF	SOUND
 			XDEF	OSBPUT
 			XDEF	OSBGET
@@ -52,6 +47,7 @@
 			XDEF	RESET
 			XDEF	OSLOAD
 			XDEF	OSSAVE
+			XDEF	EXPR_W2
 
 			XREF	ASC_TO_NUMBER
 			XREF	RAM_START
@@ -65,6 +61,7 @@
 			XREF	EXPRI
 			XREF	COMMA
 			XREF	XEQ
+			XREF	NXT
 			XREF	CRTONULL
 			XREF	NULLTOCR
 			XREF	CRLF
@@ -99,32 +96,16 @@ OSLINE:			PUSH	IY
 			CALL	ESCSET
 			CALL	LTRAP			
 $$:			XOR	A			; Return A = 0			
-			RET
-;			JP	Edit_Line 			
-
-; CLRSCN: clears the screen.
-;
-CLRSCN:			LD	A, 0CH
-			JP	OSWRCH
-				
-; MODE n: Set video mode
-;
-MODE:			CALL    EXPRI
-			EXX
-			VDU	16H
-			VDU	L
-			CALL	CLRSCN				
-			JP	XEQ
+			RET		
 
 ; PUTIME: set current time to DE:HL, in centiseconds.
 ;
 PUTIME:			PUSH 	IX
-			LD	C, sysvar_time
 			MOSCALL	mos_sysvars
-			LD.LIL	(IX + 0), L
-			LD.LIL	(IX + 1), H
-			LD.LIL	(IX + 2), E
-			LD.LIL	(IX + 3), D
+			LD.LIL	(IX + sysvar_time + 0), L
+			LD.LIL	(IX + sysvar_time + 1), H
+			LD.LIL	(IX + sysvar_time + 2), E
+			LD.LIL	(IX + sysvar_time + 3), D
 			POP	IX
 			RET
 
@@ -132,10 +113,10 @@ PUTIME:			PUSH 	IX
 ;
 GETIME:			PUSH 	IX
 			MOSCALL	mos_sysvars
-			LD.LIL	L, (IX + 0)
-			LD.LIL	H, (IX + 1)
-			LD.LIL	E, (IX + 2)
-			LD.LIL	D, (IX + 3)
+			LD.LIL	L, (IX + sysvar_time + 0)
+			LD.LIL	H, (IX + sysvar_time + 1)
+			LD.LIL	E, (IX + sysvar_time + 2)
+			LD.LIL	D, (IX + sysvar_time + 3)
 			POP	IX
 			RET
 
@@ -150,10 +131,14 @@ PUTCSR:			LD	A, 1Fh				; TAB
 			RET
 
 ; GETCSR: return cursor position in x=DE, y=HL
-; TODO: Need to get value from MOS/VDP
 ;
-GETCSR:			LD 	DE, 0
-			LD	HL, 0
+GETCSR:			PUSH 	IX
+			MOSCALL	mos_sysvars
+			LD 	D, 0
+			LD	H, D
+			LD	E, (IX + sysvar_cursorX)
+			LD	L, (IX + sysvar_cursorY)
+			POP	IX
 			RET
 
 ; PROMPT: output the input prompt
@@ -442,9 +427,7 @@ OSOPEN:			LD	C, fa_read
 			LD	C, fa_write | fa_open_append
 			JR	C, $F
 			LD	C, fa_write | fa_create_always
-$$:			PUSH	IY
-			MOSCALL	mos_fopen
-			POP	IY
+$$:			MOSCALL	mos_fopen			
 			RET
 
 ;OSSHUT - Close disk file(s).
@@ -452,10 +435,10 @@ $$:			PUSH	IY
 ;  If E=0 all files are closed (except SPOOL)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSSHUT:			LD	C, E
-			PUSH	IY
+OSSHUT:			PUSH	BC
+			LD	C, E
 			MOSCALL	mos_fclose
-			POP	IY
+			POP	BC
 			RET
 	
 ; OSBGET - Read a byte from a random disk file.
@@ -465,10 +448,10 @@ OSSHUT:			LD	C, E
 ;  Carry set if LAST BYTE of file
 ; Destroys: A,B,C,F
 ;
-OSBGET:			LD	C, E
-			PUSH	IY
+OSBGET:			PUSH	BC
+			LD	C, E
 			MOSCALL	mos_fgetc
-			POP	IY
+			POP	BC
 			RET
 	
 ; OSBPUT - Write a byte to a random disk file.
@@ -476,11 +459,11 @@ OSBGET:			LD	C, E
 ;  A = byte to write
 ; Destroys: A,B,C,F
 ;	
-OSBPUT:			LD	C, E
+OSBPUT:			PUSH	BC
+			LD	C, E
 			LD	B, A
-			PUSH	IY
 			MOSCALL	mos_fputc
-			POP	IY
+			POP	BC
 			RET
 
 ; OSSTAT - Read file status
@@ -490,7 +473,12 @@ OSBPUT:			LD	C, E
 ;  A: If Z then A = 0
 ; Destroys: A,D,E,H,L,F
 ;
-OSSTAT:			RET
+OSSTAT:			PUSH	BC
+			LD	C, E
+			MOSCALL	mos_feof
+			POP	BC
+			CP	1
+			RET
 	
 ; GETPTR - Return file pointer.
 ;    E = file channel
@@ -515,64 +503,6 @@ PUTPTR:			RET
 ;
 GETEXT:			RET	
 
-; GCOL mode,R,G,B
-;
-GCOL:			CALL	EXPRI
-			EXX
-			LD	A, L
-			LD	(VDU_BUFFER+0), A	; The mode
-			CALL	COMMA
-
-			CALL	EXPRI
-			EXX
-			LD	A, L
-			LD	(VDU_BUFFER+1), A	; Red
-			CALL	COMMA
-
-			CALL	EXPRI
-			EXX
-			LD	A, L
-			LD	(VDU_BUFFER+2), A	; Green
-			CALL	COMMA
-
-			CALL	EXPRI
-			EXX
-			LD	A, L
-			LD	(VDU_BUFFER+3), A	; Blue				
-			
-			VDU	12H			; VDU code for GCOL
-			VDU	(VDU_BUFFER+0)		; Mode
-			VDU	(VDU_BUFFER+1)		; Red
-			VDU	(VDU_BUFFER+2)		; Green
-			VDU	(VDU_BUFFER+3)		; Blue
-			
-			JP	XEQ
-				
-
-	
-; PLOT mode,x,y
-;
-PLOT:			CALL	EXPRI		; Parse mode
-			EXX					
-			PUSH	HL		; Push mode (L) onto stack
-			CALL	COMMA 	
-			CALL	EXPR_W2		; Parse X and Y
-			POP	BC		; Pop mode (C) off stack
-PLOT_1:			VDU	19H		; VDU code for PLOT				
-			VDU	C		;  C: Mode
-			VDU	E		; DE: X
-			VDU	D
-			VDU	L		; HL: Y
-			VDU	H
-			JP	XEQ
-
-; MOVE x,y
-;
-MOVE:			CALL	EXPR_W2		; Parse X and Y
-			LD	C, 04H		; Plot mode 04H (Move)
-			JR	PLOT_1		; Plot
-				
-
 ; Get two word values from EXPR in DE, HL
 ; IY: Pointer to expression string
 ; Returns:
@@ -592,6 +522,5 @@ EXPR_W2:		CALL	EXPRI			; Get first parameter
 ;
 GETSCHR:
 POINT:
-DRAW:
 SOUND:
 RESET:			RET

@@ -13,6 +13,7 @@
 <file filter-key="">.\ram.asm</file>
 <file filter-key="">.\sorry.asm</file>
 <file filter-key="">.\init.asm</file>
+<file filter-key="">.\agon_graphics.asm</file>
 </files>
 
 <!-- configuration information -->

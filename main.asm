@@ -14,7 +14,7 @@
 			.ASSUME	ADL = 0				
 
 			INCLUDE	"equs.inc"
-				
+
 			SEGMENT CODE
 			
 			XDEF	COLD
