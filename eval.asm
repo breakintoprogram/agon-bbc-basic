@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	26/07/2022
+; Last Updated:	19/08/2022
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -13,6 +13,7 @@
 ; 30/09/1992:	INSTR bug fixed
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
 ; 26/07/2022:	Fixed bug with INT caused when converting source to run on ZDS
+; 19/08/2022:	INKEY1 is now XREFd
 
 			.ASSUME	ADL = 0
 
@@ -48,7 +49,6 @@
 				
 			XREF	ADVAL
 			XREF	FN
-;			XREF	INT_
 			XREF	POINT
 			XREF	USR
 			XREF	SYNTAX
@@ -80,6 +80,7 @@
 			XREF	GETSCHR
 			XREF	OSRDCH
 			XREF	OSKEY
+			XREF	INKEY1
 ;
 ;BINARY FLOATING POINT REPRESENTATION:
 ;   32 BIT SIGN-MAGNITUDE NORMALIZED MANTISSA
