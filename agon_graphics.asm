@@ -2,9 +2,10 @@
 ; Title:	BBC Basic for AGON - Graphics stuff
 ; Author:	Dean Belfield
 ; Created:	07/08/2022
-; Last Updated:	07/08/2022
+; Last Updated:	19/08/2022
 ;
 ; Modinfo:
+; 19/08/2022:	Added GETSCHR, POINT
 
 			
 			.ASSUME	ADL = 0
@@ -23,6 +24,8 @@
 			XDEF	MOVE
 			XDEF	PLOT
 			XDEF	DRAW
+			XDEF	POINT
+			XDEF	GETSCHR
 			
 			XREF	OSWRCH
 			XREF	ASC_TO_NUMBER
@@ -31,17 +34,20 @@
 			XREF	COMMA
 			XREF	XEQ
 			XREF	NXT
+			XREF	BRAKET
+			XREF	COUNT0
 			XREF	CRTONULL
 			XREF	NULLTOCR
 			XREF	CRLF
 			XREF	EXPR_W2
+			XREF	INKEY1
 			
 ; CLG: clears the graphics area
 ;
 CLG:			VDU	10h
 			JP	XEQ
 
-; CLRSCN: clears the text area
+; CLS: clears the text area
 ;
 CLRSCN:			LD	A, 0Ch
 			JP	OSWRCH
@@ -54,7 +60,78 @@ MODE:			CALL    EXPRI
 			VDU	L
 			CALL	CLRSCN				
 			JP	XEQ
-		
+			
+; GET(x,y): Get the ASCII code of a character on screen
+;
+GETSCHR:		INC	IY
+			CALL    EXPRI      		; Get X coordinate
+			EXX
+			LD	(VDU_BUFFER+0), HL
+			CALL	COMMA		
+			CALL	EXPRI			; Get Y coordinate
+			EXX 
+			LD	(VDU_BUFFER+2), HL
+			CALL	BRAKET			; Closing bracket		
+;
+			PUSH	IX			; Get the system vars in IX
+			MOSCALL	mos_sysvars		; Reset the semaphore
+			RES.LIL	1, (IX+sysvar_vpd_pflags)
+			VDU	23			; Do VDU 23,0,3,x;y;
+			VDU	0
+			VDU	3
+			VDU	(VDU_BUFFER+0)
+			VDU	(VDU_BUFFER+1)
+			VDU	(VDU_BUFFER+2)
+			VDU	(VDU_BUFFER+3)
+$$:			BIT.LIL	1, (IX+sysvar_vpd_pflags)
+			JR	Z, $B			; Wait for the result
+			LD.LIL	A, (IX+sysvar_scrchar)	; Fetch the result in A
+			OR	A			; Check for 00h
+			SCF				; C = character map
+			JR	NZ, $F			; We have a character, so skip next bit
+			XOR	A			; Clear carry
+			DEC	A			; Set A to FFh
+$$:			POP	IX			
+			JP	INKEY1			; Jump back to the GET command
+
+; POINT(x,y): Get the pixel colour of a point on screen
+;
+POINT:			CALL    EXPRI      		; Get X coordinate
+			EXX
+			LD	(VDU_BUFFER+0), HL
+			CALL	COMMA		
+			CALL	EXPRI			; Get Y coordinate
+			EXX 
+			LD	(VDU_BUFFER+2), HL
+			CALL	BRAKET			; Closing bracket		
+;
+			PUSH	IX			; Get the system vars in IX
+			MOSCALL	mos_sysvars		; Reset the semaphore
+			RES.LIL	2, (IX+sysvar_vpd_pflags)
+			VDU	23			; Do VDU 23,0,4,x;y;
+			VDU	0
+			VDU	4
+			VDU	(VDU_BUFFER+0)
+			VDU	(VDU_BUFFER+1)
+			VDU	(VDU_BUFFER+2)
+			VDU	(VDU_BUFFER+3)
+$$:			BIT.LIL	2, (IX+sysvar_vpd_pflags)
+			JR	Z, $B			; Wait for the result
+;
+; Return the data as a 3 byte number
+; &RRGGBB
+;
+			LD.LIL	H, (IX+(sysvar_scrpixel+1))	; G
+			LD.LIL	L, (IX+(sysvar_scrpixel+2))	; B
+			EXX
+			XOR     A
+			LD      C, A				; Integer marker
+			LD      H, 0				; 0
+			LD.LIL  L, (IX+(sysvar_scrpixel+0))	; R
+			POP	IX	
+			RET
+
+
 ; COLOUR colour
 ; COLOUR mode,R,G,B
 ;
