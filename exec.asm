@@ -4,13 +4,14 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	20/09/2022
 ;
 ; Modinfo:
 ; 27/01/1984:	Version 2.1
 ; 02/03/1987:	Version 3.0
 ; 11/06/1987:	Version 3.1
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
+; 20/09/2022:	Reformatted Z80 assembler defines to make it easier to read
 
 			.ASSUME	ADL = 0
 
@@ -119,8 +120,9 @@
 			XREF	LOADS
 			XREF	PUTCSR
 			XREF	OUT_
-				
-
+;
+; List of token values used in this module
+;
 TAND:			EQU     80H
 TOR:			EQU     84H
 TERROR:			EQU     85H
@@ -132,129 +134,136 @@ TAB:			EQU     8AH
 ELSE_:			EQU     8BH
 THEN:			EQU     8CH
 LINO:			EQU     8DH
-TO:				EQU     0B8H
-TCMD:			EQU     0C6H
-TCALL:			EQU     0D6H
-DATA_:			EQU     0DCH
-DEF_:			EQU     0DDH
-TGOSUB:			EQU     0E4H
-TGOTO:			EQU     0E5H
-TON:			EQU     0EEH
-TPROC:			EQU     0F2H
-TSTOP:			EQU     0FAH
+TO:			EQU     B8H
+TCMD:			EQU     C6H
+TCALL:			EQU     D6H
+DATA_:			EQU     DCH
+DEF_:			EQU     DDH
+TGOSUB:			EQU     E4H
+TGOTO:			EQU     E5H
+TON:			EQU     EEH
+TPROC:			EQU     F2H
+TSTOP:			EQU     FAH
+
 ;
-CMDTAB:			DW    AUTO
-			DW    DELETE
-			DW    LOAD
-			DW    LIST_
-			DW    NEW
-			DW    OLD
-			DW    RENUM
-			DW    SAVE
-			DW    PUT
-			DW    PTR
-			DW    PAGEV
-			DW    TIMEV
-			DW    LOMEMV
-			DW    HIMEMV
-			DW    SOUND
-			DW    BPUT
-			DW    CALL_
-			DW    CHAIN
-			DW    CLR
-			DW    CLOSE
-			DW    CLG
-			DW    CLS
-			DW    REM             ;DATA
-			DW    REM             ;DEF
-			DW    DIM
-			DW    DRAW
-			DW    END_
-			DW    ENDPRO
-			DW    ENVEL
-			DW    FOR
-			DW    GOSUB
-			DW    GOTO
-			DW    GCOL
-			DW    IF_
-			DW    INPUT
-			DW    LET
-			DW    LOCAL_
-			DW    MODE
-			DW    MOVE
-			DW    NEXT
-			DW    ON_
-			DW    VDU
-			DW    PLOT
-			DW    PRINT_
-			DW    PROC
-			DW    READ
-			DW    REM
-			DW    REPEAT
-			DW    REPOR
-			DW    RESTOR
-			DW    RETURN
-			DW    RUN
-			DW    STOP
-			DW    COLOUR
-			DW    TRACE
-			DW    UNTIL
-			DW    WIDTHV
-			DW    CLI             ;OSCLI
+; The command table
+; Commands are tokens from C6H onwards; this lookup table is used to
+; run the corresponding function; Note that DATA and DEF both use the same
+; code as REM
 ;
-RUN:			CALL    TERMQ
-			JR      Z,RUN0
-CHAIN:			CALL    EXPRS
-			LD      A,CR
+CMDTAB:			DW    AUTO				; C6H
+			DW    DELETE				; C7H
+			DW    LOAD				; C8H
+			DW    LIST_				; C9H
+			DW    NEW				; CAH
+			DW    OLD				; CBH
+			DW    RENUM				; CCH
+			DW    SAVE				; CDH
+			DW    PUT				; CEH
+			DW    PTR				; CFH
+			DW    PAGEV				; D0H
+			DW    TIMEV				; D1H
+			DW    LOMEMV				; D2H
+			DW    HIMEMV				; D3H
+			DW    SOUND				; D4H
+			DW    BPUT				; D5H
+			DW    CALL_				; D6H
+			DW    CHAIN				; D7H
+			DW    CLR				; D8H
+			DW    CLOSE				; D9H
+			DW    CLG				; DAH
+			DW    CLS				; DBH
+			DW    REM             			; DCH: DATA
+			DW    REM             			; DDH: DEF
+			DW    DIM				; DEH
+			DW    DRAW				; DFH
+			DW    END_				; E0H
+			DW    ENDPRO				; E1H
+			DW    ENVEL				; E2H
+			DW    FOR				; E3H
+			DW    GOSUB				; E4H
+			DW    GOTO				; E5H
+			DW    GCOL				; E6H
+			DW    IF_				; E7H
+			DW    INPUT				; E8H
+			DW    LET				; E9H
+			DW    LOCAL_				; EAH
+			DW    MODE				; EBH
+			DW    MOVE				; ECH
+			DW    NEXT				; EDH
+			DW    ON_				; EEH
+			DW    VDU				; EFH
+			DW    PLOT				; F0H
+			DW    PRINT_				; F1H
+			DW    PROC				; F2H
+			DW    READ				; F3H
+			DW    REM				; F4H
+			DW    REPEAT				; F5H
+			DW    REPOR				; F6H
+			DW    RESTOR				; F7H
+			DW    RETURN				; F8H
+			DW    RUN				; F9H
+			DW    STOP				; FAH
+			DW    COLOUR				; FBH
+			DW    TRACE				; FCH
+			DW    UNTIL				; FDH
+			DW    WIDTHV				; FEH
+			DW    CLI             			; FFH: OSCLI
+;
+; RUN 
+; RUN "filename"
+;
+RUN:			CALL    TERMQ				; Standalone RUN command?
+			JR      Z,RUN0				; Yes, so just RUN the code
+;
+; CHAIN "filename"
+;
+CHAIN:			CALL    EXPRS				; Get the filename
+			LD      A,CR				; Terminate it with a CR
 			LD      (DE),A
-CHAIN0:			LD      SP,(HIMEM)
-			CALL    LOAD0
-RUN0:			LD      SP,(HIMEM)      ;PREPARE FOR RUN
-			LD      IX,RANDOM
+CHAIN0:			LD      SP,(HIMEM)			; Reset SP
+			CALL    LOAD0				; And load the file in
 ;
-; dtrg: bugfix here; on emulators, R is always zero, and the original
-; code always waiting until it was non-zero, resulting in a hang.
-; Instead we crudely hack around it.
-;
-			LD      A, R
-			JR      NZ, $F
-			INC	A
-;
-$$:			RLCA
+RUN0:			LD      SP,(HIMEM)      		; Prepare for RUN
+			LD      IX,RANDOM			; Pointer to the RANDOM sysvar
+$$:			LD      A, R				; Use the R register to seed the random number generator
+			JR      Z, $B				; Loop unti we get a non-zero value in A
+			RLCA					; Rotate it
 			RLCA
-			LD      (IX+3),A
-			SBC     A,A
-			LD      (IX+4),A
+			LD      (IX+3),A			; And store
+			SBC     A,A				; Depending upon the C flag, this will either be 00h or FFh
+			LD      (IX+4),A			; And store
 			CALL    CLEAR
-			LD      HL,0
+			LD      HL,0				; Clear the error trap sysvar
 			LD      (ERRTRP),HL
-			LD      HL,(PAGE_)
-			LD      A,DATA_
-			CALL    SEARCH          ;LOOK FOR "DATA"
-			LD      (DATPTR),HL     ;SET DATA POINTER
-			LD      IY,(PAGE_)
+			LD      HL,(PAGE_)			; Load HL with the start of program memory (PAGE)
+			LD      A,DATA_				; The DATA token value
+			CALL    SEARCH          		; Search for the first DATA token in the tokenised listing
+			LD      (DATPTR),HL     		; Set data pointer
+			LD      IY,(PAGE_)			; Load IY with the start of program memory
+;			
 XEQ0:			CALL    NEWLIN
-XEQ:			LD      (ERRLIN),IY     ;ERROR POINTER
-			CALL    TRAP            ;CHECK KEYBOARD
+XEQ:			LD      (ERRLIN),IY     		; Error pointer
+			CALL    TRAP           			; Check keyboard
 XEQ1:			CALL    NXT
 			INC     IY
-			CP      ':'             ;SEPARATOR
+			CP      ':'             		; Seperator
 			JR      Z,XEQ1
 			CP      CR
-			JR      Z,XEQ0          ;NEW PROGRAM LINE
+			JR      Z,XEQ0          		; New program line
 			SUB     TCMD
-			JR      C,LET0          ;IMPLIED "LET"
+			JR      C,LET0          		; Implied "LET"
 			ADD     A,A
 			LD      C,A
 			LD      B,0
 			LD      HL,CMDTAB
 			ADD     HL,BC
-			LD      A,(HL)          ;TABLE ENTRY
+			LD      A,(HL)          		; Table entry
 			INC     HL
 			LD      H,(HL)
 			LD      L,A
 			CALL    NXT
-			JP      (HL)            ;EXECUTE STATEMENT
+			JP      (HL)            		; Execute the statement
 ;
 ;END
 ;
@@ -2056,21 +2065,21 @@ ASMB1:			CALL    SKIP
 			LD      C,B     ;ROOT OPCODE
 			LD      D,0     ;CLEAR IX/IY FLAG
 ;
-;GROUP 0 - TRIVIAL CASES REQUIRING NO COMPUTATION
-;GROUP 1 - AS GROUP 0 BUT WITH "ED" PREFIX
+;GROUP 0: Trivial cases requiring no computation
+;GROUP 1: As Group 0, but with "ED" prefix
 ;
-			SUB     39
-			JR      NC,GROUP2
-			CP      15-39
-			CALL    NC,ED
-			JR      BYTE0
+			SUB     39				; The number of opcodes in GROUP0 and GROUP1
+			JR      NC,GROUP2			; If not in that range, then check GROUP2
+			CP      15-39				; Anything between 15 and 39 (neat compare trick here)
+			CALL    NC,ED				; Needs to be prefixed with ED
+			JR      BYTE0				; Then write the opcode byte
 ;
-;GROUP 2 - BIT, RES, SET
-;GROUP 3 - RLC, RRC, RL, RR, SLA, SRA, SRL
+;GROUP 2: BIT, RES, SET
+;GROUP 3: RLC, RRC, RL, RR, SLA, SRA, SRL
 ;
-GROUP2:			SUB     10
-			JR      NC,GROUP4
-			CP      3-10
+GROUP2:			SUB     10				; The number of opcodes in GROUP2 and GROUP3
+			JR      NC,GROUP4			; If not in that range, then check GROUP4
+			CP      3-10				; 
 			CALL    C,BIT_
 			RET     C
 			CALL    REGLO
@@ -2080,11 +2089,11 @@ GROUP2:			SUB     10
 ;
 ;GROUP 4 - PUSH, POP, EX (SP)
 ;
-GROUP4:			SUB     3
-			JR      NC,GROUP5
-G4:			CALL    PAIR
+GROUP4:			SUB     3				; The number of opcodes in GROUP4
+			JR      NC,GROUP5			; If not in that range, then check GROUP5
+G4:			CALL    PAIR				
 			RET     C
-			JR      BYTE0
+			JR      BYTE0				
 ;
 ;GROUP 5 - SUB, AND, XOR, OR, CP
 ;GROUP 6 - ADD, ADC, SBC
@@ -2188,7 +2197,7 @@ VAL8:			LD      A,L
 ;
 ;GROUP 11 - JP
 ;
-GROUPB:			LD      B,A
+GROUPB:			LD      B,A		
 			JR      NZ,GROUPC
 			CALL    COND_
 			LD      A,C
@@ -2199,8 +2208,8 @@ GROUPB:			LD      B,A
 			LD      A,0E9H
 			JR      Z,BYTE2
 			LD      A,0C3H
-GRPB:		CALL    BYTE_
-			JR		ADDR_
+GRPB:			CALL    BYTE_
+			JR	ADDR_
 ;
 ;GROUP 12 - CALL
 ;
@@ -2233,7 +2242,7 @@ GRPE:			CALL    COND_
 ;
 ;GROUP 15 - LD
 ;
-GROUPF:			DJNZ    MISC
+GROUPF:			DJNZ	GROUPZ
 			CALL    LDOP
 			JR      NC,LDA
 			CALL    REGHI
@@ -2263,7 +2272,7 @@ LDIN:			EX      AF,AF'
 			CALL    NC,REGLO
 			LD      A,C
 			POP     BC
-			JR      NC,BIND
+			JP      NC,BIND
 			LD      C,0AH
 			CALL    PAIR1
 			CALL    LD16
@@ -2274,7 +2283,7 @@ LDIN:			EX      AF,AF'
 			CALL    LD16
 			RET     C
 			CALL    BYTE_
-			JR      VAL16
+			JR      VAL16	
 ;
 ;OPT - SET OPTION
 ;
@@ -2294,7 +2303,20 @@ LDA:			CP      4
 			LD      A,B
 BYTE1:			JR      BYTE_
 ;
-;MISC - DB, DEFW, DB
+;GROUP 16 - eZ80 specific stuff
+;
+GROUPZ:			LD	A, B
+			SUB	4			; Number of instructions in this group
+			LD	B, A
+			JR	Z, GROUPZ1		; TODO: Need to refactor assembler after this point
+			JR	NC, MISC		; TODO: as this double JR is a bit ugly
+;
+GROUPZ1:
+;
+EDBYTE:			CALL	ED			; All eZ80 instructions with no operands			
+			JP	BYTE0			
+;
+;MISC - DEFB, DEFW, DEFM
 ;
 MISC:			DJNZ    OPT
 			PUSH    IX
@@ -2350,11 +2372,13 @@ BIND:			CP      76H
 			LD      A,E
 			JR      BYTE_
 ;
-OPND:			PUSH    HL
-			LD      HL,OPRNDS
-			CALL    FIND
+; Search through the operand table
+;
+OPND:			PUSH    HL			; Preserve HL
+			LD      HL,OPRNDS		; The operands table
+			CALL    FIND			; Find the operand
 			POP     HL
-			RET     C
+			RET     C			; Ret
 			BIT     7,B
 			RET     Z
 			BIT     3,B
@@ -2440,7 +2464,8 @@ ORC:			OR      C
 			RET
 ;
 LDOP:			LD      HL,LDOPS
-FIND:			CALL    SKIP
+;
+FIND:			CALL    SKIP				; sKIP
 EXIT_:			LD      B,0
 			SCF
 			RET     Z
@@ -2496,376 +2521,188 @@ SIGN:			CP      '+'
 			RET     Z
 			CP      '-'
 			RET
+
+; Z80 opcode list
 ;
-;.XLIST
-OPCODS:			DB    'NO'
-			DB    'P'+80H
-			DB    0
-			DB    'RLC'
-			DB    'A'+80H
-			DB    7
-			DB    'EX'
-			DB    0
-			DB    'AF'
-			DB    0
-			DB    'AF'
-			DB    '''+80H
-			DB    8
-			DB    'RRC'
-			DB    'A'+80H
-			DB    0FH
-			DB    'RL'
-			DB    'A'+80H
-			DB    17H
-			DB    'RR'
-			DB    'A'+80H
-			DB    1FH
-			DB    'DA'
-			DB    'A'+80H
-			DB    27H
-			DB    'CP'
-			DB    'L'+80H
-			DB    2FH
-			DB    'SC'
-			DB    'F'+80H
-			DB    37H
-			DB    'CC'
-			DB    'F'+80H
-			DB    3FH
-			DB    'HAL'
-			DB    'T'+80H
-			DB    76H
-			DB    'EX'
-			DB    'X'+80H
-			DB    0D9H
-			DB    'EX'
-			DB    0
-			DB    'DE'
-			DB    0
-			DB    'H'
-			DB    'L'+80H
-			DB    0EBH
-			DB    'D'
-			DB    'I'+80H
-			DB    0F3H
-			DB    'E'
-			DB    'I'+80H
-			DB    0FBH
+; Group 0:
 ;
-			DB    'NE'
-			DB    'G'+80H
-			DB    44H
-			DB    'IM'
-			DB    0
-			DB    '0'+80H
-			DB    46H
-			DB    'RET'
-			DB    'N'+80H
-			DB    45H
-			DB    'RET'
-			DB    'I'+80H
-			DB    4DH
-			DB    'IM'
-			DB    0
-			DB    '1'+80H
-			DB    56H
-			DB    'IM'
-			DB    0
-			DB    '2'+80H
-			DB    5EH
-			DB    'RR'
-			DB    'D'+80H
-			DB    67H
-			DB    'RL'
-			DB    'D'+80H
-			DB    6FH
-			DB    'LD'
-			DB    'I'+80H
-			DB    0A0H
-			DB    'CP'
-			DB    'I'+80H
-			DB    0A1H
-			DB    'IN'
-			DB    'I'+80H
-			DB    0A2H
-			DB    'OUT'
-			DB    'I'+80H
-			DB    0A3H
-			DB    'LD'
-			DB    'D'+80H
-			DB    0A8H
-			DB    'CP'
-			DB    'D'+80H
-			DB    0A9H
-			DB    'IN'
-			DB    'D'+80H
-			DB    0AAH
-			DB    'OUT'
-			DB    'D'+80H
-			DB    0ABH
-			DB    'LDI'
-			DB    'R'+80H
-			DB    0B0H
-			DB    'CPI'
-			DB    'R'+80H
-			DB    0B1H
-			DB    'INI'
-			DB    'R'+80H
-			DB    0B2H
-			DB    'OTI'
-			DB    'R'+80H
-			DB    0B3H
-			DB    'LDD'
-			DB    'R'+80H
-			DB    0B8H
-			DB    'CPD'
-			DB    'R'+80H
-			DB    0B9H
-			DB    'IND'
-			DB    'R'+80H
-			DB    0BAH
-			DB    'OTD'
-			DB    'R'+80H
-			DB    0BBH
+OPCODS:			DB    'NO','P'+80H,00h
+			DB    'RLC','A'+80H,07h
+			DB    'EX',0,'AF',0,'AF','''+80H,08h
+			DB    'RRC','A'+80H,0FH
+			DB    'RL','A'+80H,17H
+			DB    'RR','A'+80H,1FH
+			DB    'DA','A'+80H,27H
+			DB    'CP','L'+80H,2FH
+			DB    'SC','F'+80H,37H
+			DB    'CC','F'+80H,3FH
+			DB    'HAL','T'+80H,76H
+			DB    'EX','X'+80H,D9H
+			DB    'EX',0,'DE',0,'H','L'+80H,EBH
+			DB    'D','I'+80H,F3H
+			DB    'E','I'+80H,FBH
 ;
-			DB    'BI'
-			DB    'T'+80H
-			DB    40H
-			DB    'RE'
-			DB    'S'+80H
-			DB    80H
-			DB    'SE'
-			DB    'T'+80H
-			DB    0C0H
+; Group 1:
 ;
-			DB    'RL'
-			DB    'C'+80H
-			DB    0
-			DB    'RR'
-			DB    'C'+80H
-			DB    8
-			DB    'R'
-			DB    'L'+80H
-			DB    10H
-			DB    'R'
-			DB    'R'+80H
-			DB    18H
-			DB    'SL'
-			DB    'A'+80H
-			DB    20H
-			DB    'SR'
-			DB    'A'+80H
-			DB    28H
-			DB    'SR'
-			DB    'L'+80H
-			DB    38H
+			DB    'NE','G'+80H,44H
+			DB    'IM',0,'0'+80H,46H
+			DB    'RET','N'+80H,45H
+			DB    'RET','I'+80H,4DH
+			DB    'IM',0,'1'+80H,56H
+			DB    'IM',0,'2'+80H,5EH
+			DB    'RR','D'+80H,67H
+			DB    'RL','D'+80H,6FH
+			DB    'LD','I'+80H,A0H
+			DB    'CP','I'+80H,A1H
+			DB    'IN','I'+80H,A2H
+			DB    'OUT','I'+80H,A3H
+			DB    'LD','D'+80H,A8H
+			DB    'CP','D'+80H,A9H
+			DB    'IN','D'+80H,AAH
+			DB    'OUT','D'+80H,ABH
+			DB    'LDI','R'+80H,B0H
+			DB    'CPI','R'+80H,B1H
+			DB    'INI','R'+80H,B2H
+			DB    'OTI','R'+80H,B3H
+			DB    'LDD','R'+80H,B8H
+			DB    'CPD','R'+80H,B9H
+			DB    'IND','R'+80H,BAH
+			DB    'OTD','R'+80H,BBH
 ;
-			DB    'PO'
-			DB    'P'+80H
-			DB    0C1H
-			DB    'PUS'
-			DB    'H'+80H
-			DB    0C5H
-			DB    'EX'
-			DB    0
-			DB    '(S'
-			DB    'P'+80H
-			DB    0E3H
+; Group 2:
 ;
-			DB    'SU'
-			DB    'B'+80H
-			DB    90H
-			DB    'AN'
-			DB    'D'+80H
-			DB    0A0H
-			DB    'XO'
-			DB    'R'+80H
-			DB    0A8H
-			DB    'O'
-			DB    'R'+80H
-			DB    0B0H
-			DB    'C'
-			DB    'P'+80H
-			DB    0B8H
-			DB    TAND
-			DB    0A0H
-			DB    TOR
-			DB    0B0H
+			DB    'BI','T'+80H,40H
+			DB    'RE','S'+80H,80H
+			DB    'SE','T'+80H,C0H
 ;
-			DB    'AD'
-			DB    'D'+80H
-			DB    80H
-			DB    'AD'
-			DB    'C'+80H
-			DB    88H
-			DB    'SB'
-			DB    'C'+80H
-			DB    98H
+; Group 3:
 ;
-			DB    'IN'
-			DB    'C'+80H
-			DB    4
-			DB    'DE'
-			DB    'C'+80H
-			DB    5
+			DB    'RL','C'+80H,00H
+			DB    'RR','C'+80H,08H
+			DB    'R','L'+80H,10H
+			DB    'R','R'+80H,18H
+			DB    'SL','A'+80H,20H
+			DB    'SR','A'+80H,28H
+			DB    'SR','L'+80H,38H
 ;
-			DB    'I'
-			DB    'N'+80H
-			DB    40H
-			DB    'OU'
-			DB    'T'+80H
-			DB    41H
+; Group 4:
 ;
-			DB    'J'
-			DB    'R'+80H
-			DB    20H
-			DB    'DJN'
-			DB    'Z'+80H
-			DB    10H
+			DB    'PO','P'+80H,C1H
+			DB    'PUS','H'+80H,C5H
+			DB    'EX',0,'(S','P'+80H,E3H
 ;
-			DB    'J'
-			DB    'P'+80H
-			DB    0C2H
+; Group 5:
 ;
-			DB    'CAL'
-			DB    'L'+80H
-			DB    0C4H
+			DB    'SU','B'+80H,90H
+			DB    'AN','D'+80H,A0H
+			DB    'XO','R'+80H,A8H
+			DB    'O','R'+80H,B0H
+			DB    'C','P'+80H,B8H
+			DB    TAND,A0H				; TAND: Tokenised AND
+			DB    TOR,B0H				; TOR: Tokenised OR
 ;
-			DB    'RS'
-			DB    'T'+80H
-			DB    0C7H
+; Group 6
 ;
-			DB    'RE'
-			DB    'T'+80H
-			DB    0C0H
+			DB    'AD','D'+80H,80H
+			DB    'AD','C'+80H,88H
+			DB    'SB','C'+80H,98H
 ;
-			DB    'L'
-			DB    'D'+80H
-			DB    40H
+; Group 7:
 ;
-			DB    DEF_ & 7FH
-			DB    'M'+80H
-			DB    0
+			DB    'IN','C'+80H,04H
+			DB    'DE','C'+80H,05H
 ;
-			DB    DEF_ & 7FH
-			DB    'B'+80H
-			DB    0
+; Group 8:
 ;
-			DB    'OP'
-			DB    'T'+80H
-			DB    0
+			DB    'I','N'+80H,40H
 ;
-			DB    DEF_ & 7FH
-			DB    'W'+80H
-			DB    0
+; Group 9:
+;
+			DB    'OU','T'+80H,41H
+;
+; Group 10:
+;
+			DB    'J','R'+80H,20H
+			DB    'DJN','Z'+80H,10H
+;
+; Group 11:
+;
+			DB    'J','P'+80H,C2H
+;
+; Group 12:
+;
+			DB    'CAL','L'+80H,C4H
+;
+; Group 13:
+;
+			DB    'RS','T'+80H,C7H
+;
+; Group 14:
+;
+			DB    'RE','T'+80H,C0H
+;
+; Group 15:
+;
+			DB    'L','D'+80H,40H
+;
+; Group 16: eZ80 specific (4)
+;
+			DB    'MLT',0,'B','C'+80H,4CH
+			DB    'MLT',0,'D','E'+80H,5CH						
+			DB    'MLT',0,'H','L'+80H,6CH
+			DB    'MLT',0,'S','P'+80H,7CH
+;
+; Assembler Directives
+;
+			DB    DEF_ & 7FH,'M'+80H,00H
+			DB    DEF_ & 7FH,'B'+80H,00H
+			DB    'OP','T'+80H,00H
+			DB    DEF_ & 7FH,'W'+80H,00H
 ;
 			DB    0
+			
+; Operands
 ;
-OPRNDS:			DB    'B'+80H
-			DB    0
-			DB    'C'+80H
-			DB    1
-			DB    'D'+80H
-			DB    2
-			DB    'E'+80H
-			DB    3
-			DB    'H'+80H
-			DB    4
-			DB    'L'+80H
-			DB    5
-			DB    '(H'
-			DB    'L'+80H
-			DB    6
-			DB    'A'+80H
-			DB    7
-			DB    '(I'
-			DB    'X'+80H
-			DB    86H
-			DB    '(I'
-			DB    'Y'+80H
-			DB    0C6H
+OPRNDS:			DB    'B'+80H, 00H
+			DB    'C'+80H, 01H
+			DB    'D'+80H, 02H
+			DB    'E'+80H, 03H
+			DB    'H'+80H, 04H
+			DB    'L'+80H, 05H
+			DB    '(H','L'+80H,06H
+			DB    'A'+80H, 07H
+			DB    '(I','X'+80H,86H
+			DB    '(I','Y'+80H,C6H
 ;
-			DB    'B'
-			DB    'C'+80H
-			DB    8
-			DB    'D'
-			DB    'E'+80H
-			DB    10
-			DB    'H'
-			DB    'L'+80H
-			DB    12
-			DB    'I'
-			DB    'X'+80H
-			DB    8CH
-			DB    'I'
-			DB    'Y'+80H
-			DB    0CCH
-			DB    'A'
-			DB    'F'+80H
-			DB    14
-			DB    'S'
-			DB    'P'+80H
-			DB    14
+			DB    'B','C'+80H,08H
+			DB    'D','E'+80H,0AH
+			DB    'H','L'+80H,0CH
+			DB    'I','X'+80H,8CH
+			DB    'I','Y'+80H,CCH
+			DB    'A','F'+80H,0EH
+			DB    'S','P'+80H,0EH
 ;
-			DB    'N'
-			DB    'Z'+80H
-			DB    16
-			DB    'Z'+80H
-			DB    17
-			DB    'N'
-			DB    'C'+80H
-			DB    18
-			DB    'P'
-			DB    'O'+80H
-			DB    20
-			DB    'P'
-			DB    'E'+80H
-			DB    21
-			DB    'P'+80H
-			DB    22
-			DB    'M'+80H
-			DB    23
+			DB    'N','Z'+80H,10H
+			DB    'Z'+80H,11H
+			DB    'N','C'+80H,12H
+			DB    'P','O'+80H,14H
+			DB    'P','E'+80H,15H
+			DB    'P'+80H,16H
+			DB    'M'+80H,17H
 ;
-			DB    '('
-			DB    'C'+80H
-			DB    20H
+			DB    '(','C'+80H,20H
 ;
 			DB    0
+; Load operations
 ;
-LDOPS:			DB    'I'
-			DB    0
-			DB    'A'+80H
-			DB    47H
-			DB    'R'
-			DB    0
-			DB    'A'+80H
-			DB    4FH
-			DB    'A'
-			DB    0
-			DB    'I'+80H
-			DB    57H
-			DB    'A'
-			DB    0
-			DB    'R'+80H
-			DB    5FH
-			DB    '(BC'
-			DB    0
-			DB    'A'+80H
-			DB    2
-			DB    '(DE'
-			DB    0
-			DB    'A'+80H
-			DB    12H
-			DB    'A'
-			DB    0
-			DB    '(B'
-			DB    'C'+80H
-			DB    0AH
-			DB    'A'
-			DB    0
-			DB    '(D'
-			DB    'E'+80H
-			DB    1AH
+LDOPS:			DB    'I',0,'A'+80H,47H
+			DB    'R',0,'A'+80H,4FH
+			DB    'A',0,'I'+80H,57H
+			DB    'A',0,'R'+80H,5FH
+			DB    '(BC',0,'A'+80H,02h
+			DB    '(DE',0,'A'+80H,12H
+			DB    'A',0,'(B','C'+80H,0AH
+			DB    'A',0,'(D','E'+80H,1AH
 ;
 			DB    0
 ;
