@@ -6,7 +6,7 @@
    </Clock>
    <ControlReg>
       <pc>000000</pc>
-      <splStackPtr>A0000</splStackPtr>
+      <splStackPtr>C0000</splStackPtr>
       <spsStackPtr>FFFF</spsStackPtr>
       <useAdlMode>true</useAdlMode>
    </ControlReg>
@@ -14,8 +14,8 @@
       <device />
       <externalAddress>0</externalAddress>
       <externalAutoSelect>false</externalAutoSelect>
-      <externalRamLower>20000</externalRamLower>
-      <externalRamUpper>9FFFF</externalRamUpper>
+      <externalRamLower>40000</externalRamLower>
+      <externalRamUpper>BFFFF</externalRamUpper>
       <manufacturer />
       <units>1</units>
       <usingExternal>false</usingExternal>

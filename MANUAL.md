@@ -4,7 +4,48 @@ In addition to the core BBC Basic for Z80 core language (details of which [can b
 
 ## Editor
 
-BBC BASIC currently uses the MOS editor - this is not fully implemented yet.
+BBC BASIC currently uses the MOS editor
+
+- Use the cursor keys to navigate around the current edit line
+- Line lengths must be less than 256 characters
+
+## Star Commands
+
+The following * commands are supported
+
+### *BYE
+
+Exit BASIC and return to MOS.
+
+### *CAT (Alias: *.)
+
+List the current directory on the SD card.
+
+### *CD path
+
+Change the current directory on the SD card.
+
+### •EDIT linenum
+
+Pull a line into the editor for editing.
+
+### *ERASE filename
+
+Erase a file or folder from the SD card. If the directory is not empty, then an error message will be displayed
+
+### *FX osbyte, params
+
+Execute an OSBYTE command.
+
+`*FX 19`: Wait for vertical blank
+
+### *MKDIR PATH
+
+Create a folder on the SD card.
+
+### *REN oldfilename newfilename
+
+Rename a file on the SD card
 
 ## BASIC
 
@@ -12,10 +53,16 @@ The following statements differ from the BBC Basic standard:
 
 ### MODE n
 
-Two modes currently supported by the VDP
+Seven modes currently supported by the VDP.
+These can be tweaked by modifying the function set_mode in the VDP code.
 
-- `MODE 2`: 320 x 240 @ 75Hz
-- `MODE 6`: 640 x 480 @ 60Hz with a 640 x 400 canvas
+- `MODE 0`: 1024 x 768 @ 75Hz (SVGA)
+- `MODE 1`:  800 x 600 @ 56hz (SVGA)
+- `MODE 2`:  640 x 480 @ 60Hz (VGA)
+- `MODE 3`:  400 x 300 @ 60Hz (VGA)
+- `MODE 4`:  320 x 200 @ 75Hz (VGA)
+- `MODE 5`:  512 x 384 @ 60Hz (VGA)
+- `MODE 7`:  720 x 576 @ 50Hz (PAL)
 
 ### GCOL mode, r,g,b
 
