@@ -4,12 +4,13 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	28/09/2022
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
 ; 01/03/1987:	Version 3.0
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
+; 28/09/2022:	Tidied up KEYWDS and ERRWDS, Added KEYWDS and KEYWDL to XDEFs, entry point ONEDIT for *EDIT
 
 			.ASSUME	ADL = 0				
 
@@ -48,6 +49,9 @@
 			XDEF	REPORT
 			XDEF	TELL
 			XDEF	SPACE_
+			XDEF	KEYWDS
+			XDEF	KEYWDL
+			XDEF	ONEDIT
 				
 			XREF	LISTON
 			XREF	ERRTXT
@@ -102,28 +106,28 @@ LINE_:			EQU     86H
 ELSE_:			EQU     8BH
 THEN:			EQU     8CH
 LINO:			EQU     8DH
-FN:			EQU     0A4H
-TO:			EQU     0B8H
-REN:			EQU     0CCH
-DATA_:			EQU     0DCH
-DIM:			EQU     0DEH
-FOR:			EQU     0E3H
-GOSUB:			EQU     0E4H
-GOTO:			EQU     0E5H
-TIF:			EQU     0E7H
-LOCAL_:			EQU     0EAH
-NEXT:			EQU     0EDH
-ON_:			EQU     0EEH
-PROC:			EQU     0F2H
-REM:			EQU     0F4H
-REPEAT:			EQU     0F5H
-RESTOR:			EQU     0F7H
-TRACE:			EQU     0FCH
-UNTIL:			EQU     0FDH
+FN:			EQU     A4H
+TO:			EQU     B8H
+REN:			EQU     CCH
+DATA_:			EQU     DCH
+DIM:			EQU     DEH
+FOR:			EQU     E3H
+GOSUB:			EQU     E4H
+GOTO:			EQU     E5H
+TIF:			EQU     E7H
+LOCAL_:			EQU     EAH
+NEXT:			EQU     EDH
+ON_:			EQU     EEH
+PROC:			EQU     F2H
+REM:			EQU     F4H
+REPEAT:			EQU     F5H
+RESTOR:			EQU     F7H
+TRACE:			EQU     FCH
+UNTIL:			EQU     FDH
 ;
 TOKLO:			EQU     8FH
 TOKHI:			EQU     93H
-OFFSET:			EQU     0CFH-TOKLO
+OFFSET:			EQU     CFH-TOKLO
 
 ;START:			JP      COLD
 ;			JP      WARM
@@ -140,96 +144,112 @@ OFFSET:			EQU     0CFH-TOKLO
 ;			JP      OSSTAT
 ;			JP      OSSHUT
 
-COLD:			LD      HL,STAVAR       ;COLD START
+COLD:			LD      HL,STAVAR       	; Cold start
 			LD      SP,HL
 			LD      (HL),10
 			INC     L
 			LD      (HL),9
 			INC     L
 			XOR     A
-PURGE:			LD      (HL),A          ;CLEAR SCRATCHPAD
+PURGE:			LD      (HL),A          	; Clear scratchpad
 			INC     L
 			JR      NZ,PURGE
-			LD      A,37H           ;V3.0
-			LD      (LISTON),A
+			LD      A,37H           	; Set LISTO sysvar; the bottom nibble is LISTO (7), top nibble is OPT (3)
+			LD      (LISTON),A		
 			LD      HL,NOTICE
 			LD      (ERRTXT),HL
-			CALL    OSINIT
-			LD      (HIMEM),DE
-			LD      (PAGE_),HL
-			CALL    NEWIT
-			JP      NZ,CHAIN0       ;AUTO-RUN
-			CALL    TELL
-			DB    "BBC BASIC (Z80) Version 3.00\n\r"
-NOTICE:			DB    "(C) Copyright R.T.Russell 1987\n\r"
-			DB	"\n\r"
-			DB    0
-WARM:			DB    0F6H
-CLOOP:			SCF
+			CALL    OSINIT			; Call the machine specific OS initialisation routines
+			LD      (HIMEM),DE		; This returns HIMEM (ramtop) in DE - store in the HIMEM sysvar
+			LD      (PAGE_),HL		; And PAGE in HL (where BASIC program storage starts) - store in PAGE sysvar
+			CALL    NEWIT			; From what I can determine, NEWIT always returns with Z flag set
+			JP      NZ,CHAIN0       	; So this auto-run will never run
+			CALL    TELL			; Output the welcome message
+			DB    	"BBC BASIC (Z80) Version 3.00\n\r"
+NOTICE:			DB    	"(C) Copyright R.T.Russell 1987\n\r"
+			DB	"\n\r", 0
+;			
+WARM:			DB 	F6H			; Opcode for OR? Maybe to CCF (the following SCF will be the operand)
+;
+; This is the main entry point for BASIC
+;
+CLOOP:			SCF				; See above - not sure why this is here!
 			LD      SP,(HIMEM)
-			CALL    PROMPT          ;PROMPT USER
-			LD      HL,LISTON
-			LD      A,(HL)
-			AND     0FH             ;LISTO
-			OR      30H             ;OPT 3
-			LD      (HL),A
-			SBC     HL,HL           ;HL <- 0 (V3.0)
-			LD      (ERRTRP),HL
-			LD      (ERRLIN),HL
-			LD      HL,(AUTONO)
-			LD      (LINENO),HL
-			LD      A,H
+			CALL    PROMPT          	; Prompt user
+			LD      HL,LISTON		; Pointer to the LISTO/OPT sysvar 
+			LD      A,(HL)			; Fetch the value
+			AND     0FH             	; Bottom nibble: LISTO
+			OR      30H             	; Top nibble: Default to OPT (3)
+			LD      (HL),A			; Store back in
+			SBC     HL,HL           	; HL: 0
+			LD      (ERRTRP),HL		; Clear ERRTRP sysvar 
+			LD      (ERRLIN),HL		; Clear ERRLIN sysvar (ON ERROR)
+;			
+			LD      HL,(AUTONO)		; Get the auto line number
+			LD      (LINENO),HL		; Store in line number
+			LD      A,H			; If the auto line number is zero then
 			OR      L
-			JR      Z,NOAUTO
-			PUSH    HL
-			CALL    PBCD            ;AUTO NUMBER
-			POP     HL
-			LD      BC,(INCREM)
-			LD      B,0
-			ADD     HL,BC
-			JP      C,TOOBIG
-			LD      (AUTONO),HL
-			LD      A,' '
+			JR      Z,NOAUTO		; We're not auto line numbering, so skip the next bit
+;
+; This section handles auto line numbering
+;
+			PUSH    HL			; Stack the line number
+			CALL    PBCD           	 	; Output the line number
+			POP     HL			; Pop the line number back off the stack
+			LD      BC,(INCREM)		; Load BC with Increment - but INCREM is just a byte; C is the value
+			LD      B,0			; So clear B
+			ADD     HL,BC			; Add the increment to the line number
+			JP      C,TOOBIG		; And error if we wrap
+			LD      (AUTONO),HL		; Store the new auto line number
+			LD      A,' '			; Print a space
 			CALL    OUTCHR
-NOAUTO:			LD      HL,ACCS
-			CALL    OSLINE          ;GET CONSOLE INPUT
-			XOR     A
+;
+; This section invokes the line editor
+;
+NOAUTO:			LD      HL,ACCS			; Storage for the line editor (256 bytes)
+			CALL    OSLINE          	; Call the line editor in MOS
+ONEDIT:			XOR     A			; Entry point after *EDIT
 			LD      (COUNT),A
 			LD      IY,ACCS
-			CALL    LINNUM
-			CALL    NXT
-			LD      A,H
+			CALL    LINNUM			; HL: The line number from the input buffer
+			CALL    NXT			; Skip spaces
+			LD      A,H			; HL: The line number will be 0 for immediate mode or when auto line numbering is used
 			OR      L
-			JR      Z,LNZERO        ;FOR AUTO (NON-MAPPED)
-			LD      (LINENO),HL
-LNZERO:			LD      DE,BUFFER
-			LD      C,1             ;LEFT MODE
-			CALL    LEXAN2          ;LEXICAL ANALYSIS
-			LD      (DE),A          ;TERMINATOR
+			JR      Z,LNZERO        	; Skip if there is no line number in the input buffer
+			LD      (LINENO),HL		; Otherwise store it
+;
+; This bit does the lexical analysis and tokenisation
+;
+LNZERO:			LD      DE,BUFFER		; Buffer for tokenised BASIC
+			LD      C,1             	; Left mode
+			CALL    LEXAN2          	; Lexical analysis on the user input
+			LD      (DE),A          	; Terminator
 			XOR     A
 			LD      B,A
-			LD      C,E             ;BC=LINE LENGTH
+			LD      C,E             	; BC: Line length
 			INC     DE
-			LD      (DE),A          ;ZERO NEXT
-			LD      HL,(LINENO)
-			LD      A,H
+			LD      (DE),A          	; Zero next
+			LD      HL,(LINENO)		; Get the line number
+			LD      A,H			; Is it zero?
 			OR      L
-			LD      IY,BUFFER       ;FOR XEQ
-			JP      Z,XEQ           ;DIRECT MODE
+			LD      IY,BUFFER       	; Yes, so we're in immediate mode
+			JP      Z,XEQ           	; Execute it
+;
+; This section stores the BASIC line in memory
+;
 			PUSH    BC
 			PUSH    HL
-			CALL    SETTOP          ;SET TOP
+			CALL    SETTOP          	; Set top
 			POP     HL
 			CALL    FINDL
 			CALL    Z,DEL
 			POP     BC
 			LD      A,C
 			OR      A
-			JP      Z,CLOOP         ;DELETE LINE ONLY
+			JP      Z,CLOOP         	; Delete line only
 			ADD     A,4
-			LD      C,A             ;LENGTH INCLUSIVE
-			PUSH    DE              ;LINE NUMBER
-			PUSH    BC              ;SAVE LINE LENGTH
+			LD      C,A             	; Length inclusive
+			PUSH    DE              	; Line number
+			PUSH    BC              	; Save line length
 			EX      DE,HL
 			LD      HL,(TOP)
 			PUSH    HL
@@ -239,25 +259,25 @@ LNZERO:			LD      DE,BUFFER
 			XOR     A
 			SBC     HL,SP
 			POP     HL
-			JP      NC,ERROR_        ;"No room"
+			JP      NC,ERROR_        	; Error: "No room"
 			LD      (TOP),HL
 			EX      (SP),HL
 			PUSH    HL
 			INC     HL
 			OR      A
 			SBC     HL,DE
-			LD      B,H             ;BC=AMOUNT TO MOVE
+			LD      B,H             	; BC: Amount to move
 			LD      C,L
 			POP     HL
 			POP     DE
 			JR      Z,ATEND
-			LDDR                    ;MAKE SPACE
-ATEND:			POP     BC              ;LINE LENGTH
-			POP     DE              ;LINE NUMBER
+			LDDR                    	; Make space
+ATEND:			POP     BC              	; Line length
+			POP     DE              	; Line number
 			INC     HL
-			LD      (HL),C          ;STORE LENGTH
+			LD      (HL),C          	; Store length
 			INC     HL
-			LD      (HL),E          ;STORE LINE NUMBER
+			LD      (HL),E          	; Store line number
 			INC     HL
 			LD      (HL),D
 			INC     HL
@@ -266,580 +286,364 @@ ATEND:			POP     BC              ;LINE LENGTH
 			DEC     C
 			DEC     C
 			DEC     C
-			LDIR                    ;ADD LINE
+			LDIR                    	; Add line
 			CALL    CLEAN
 			JP      CLOOP	
 ;
-;LIST OF TOKENS AND KEYWORDS.
-;IF A KEYWORD IS FOLLOWED BY NUL THEN IT WILL
-; ONLY MATCH WITH THE WORD FOLLOWED IMMEDIATELY
-; BY A DELIMITER.
+; List of tokens and keywords. If a keyword is followed by 0 then
+; it will only match with the keyword followed immediately by
+; a delimiter
 ;
-KEYWDS:			DB    80H
-			DB    'AND'
-			DB    94H
-			DB    'ABS'
-			DB    95H
-			DB    'ACS'
-			DB    96H
-			DB    'ADVAL'
-			DB    97H
-			DB    'ASC'
-			DB    98H
-			DB    'ASN'
-			DB    99H
-			DB    'ATN'
-			DB    0C6H
-			DB    'AUTO'
-			DB    9AH
-			DB    'BGET'
-			DB    0
-			DB    0D5H
-			DB    'BPUT'
-			DB    0
-			DB    0FBH
-			DB    'COLOUR'
-			DB    0FBH
-			DB    'COLOR'
-			DB    0D6H
-			DB    'CALL'
-			DB    0D7H
-			DB    'CHAIN'
-			DB    0BDH
-			DB    'CHR$'
-			DB    0D8H
-			DB    'CLEAR'
-			DB    0
-			DB    0D9H
-			DB    'CLOSE'
-			DB    0
-			DB    0DAH
-			DB    'CLG'
-			DB    0
-			DB    0DBH
-			DB    'CLS'
-			DB    0
-			DB    9BH
-			DB    'COS'
-			DB    9CH
-			DB    'COUNT'
-			DB    0
-			DB    0DCH
-			DB    'DATA'
-			DB    9DH
-			DB    'DEG'
-			DB    0DDH
-			DB    'DEF'
-			DB    0C7H
-			DB    'DELETE'
-			DB    81H
-			DB    'DIV'
-			DB    0DEH
-			DB    'DIM'
-			DB    0DFH
-			DB    'DRAW'
-			DB    0E1H
-			DB    'ENDPROC'
-			DB    0
-			DB    0E0H
-			DB    'END'
-			DB    0
-			DB    0E2H
-			DB    'ENVELOPE'
-			DB    8BH
-			DB    'ELSE'
-			DB    0A0H
-			DB    'EVAL'
-			DB    9EH
-			DB    'ERL'
-			DB    0
-			DB    85H
-			DB    'ERROR'
-			DB    0C5H
-			DB    'EOF'
-			DB    0
-			DB    82H
-			DB    'EOR'
-			DB    9FH
-			DB    'ERR'
-			DB    0
-			DB    0A1H
-			DB    'EXP'
-			DB    0A2H
-			DB    'EXT'
-			DB    0
-			DB    0E3H
-			DB    'FOR'
-			DB    0A3H
-			DB    'FALSE'
-			DB    0
-			DB    0A4H
-			DB    'FN'
-			DB    0E5H
-			DB    'GOTO'
-			DB    0BEH
-			DB    'GET$'
-			DB    0A5H
-			DB    'GET'
-			DB    0E4H
-			DB    'GOSUB'
-			DB    0E6H
-			DB    'GCOL'
-			DB    93H
-			DB    'HIMEM'
-			DB    0
-			DB    0E8H
-			DB    'INPUT'
-			DB    0E7H
-			DB    'IF'
-			DB    0BFH
-			DB    'INKEY$'
-			DB    0A6H
-			DB    'INKEY'
-			DB    0A8H
-			DB    'INT'
-			DB    0A7H
-			DB    'INSTR('
-			DB    0C9H
-			DB    'LIST'
-			DB    86H
-			DB    'LINE'
-			DB    0C8H
-			DB    'LOAD'
-			DB    92H
-			DB    'LOMEM'
-			DB    0
-			DB    0EAH
-			DB    'LOCAL'
-			DB    0C0H
-			DB    'LEFT$('
-			DB    0A9H
-			DB    'LEN'
-			DB    0E9H
-			DB    'LET'
-			DB    0ABH
-			DB    'LOG'
-			DB    0AAH
-			DB    'LN'
-			DB    0C1H
-			DB    'MID$('
-			DB    0EBH
-			DB    'MODE'
-			DB    83H
-			DB    'MOD'
-			DB    0ECH
-			DB    'MOVE'
-			DB    0EDH
-			DB    'NEXT'
-			DB    0CAH
-			DB    'NEW'
-			DB    0
-			DB    0ACH
-			DB    'NOT'
-			DB    0CBH
-			DB    'OLD'
-			DB    0
-			DB    0EEH
-			DB    'ON'
-			DB    87H
-			DB    'OFF'
-			DB    84H
-			DB    'OR'
-			DB    8EH
-			DB    'OPENIN'
-			DB    0AEH
-			DB    'OPENOUT'
-			DB    0ADH
-			DB    'OPENUP'
-			DB    0FFH
-			DB    'OSCLI'
-			DB    0F1H
-			DB    'PRINT'
-			DB    90H
-			DB    'PAGE'
-			DB    0
-			DB    8FH
-			DB    'PTR'
-			DB    0
-			DB    0AFH
-			DB    'PI'
-			DB    0
-			DB    0F0H
-			DB    'PLOT'
-			DB    0B0H
-			DB    'POINT('
-			DB    0F2H
-			DB    'PROC'
-			DB    0B1H
-			DB    'POS'
-			DB    0
-			DB    0CEH
-			DB    'PUT'
-			DB    0F8H
-			DB    'RETURN'
-			DB    0
-			DB    0F5H
-			DB    'REPEAT'
-			DB    0F6H
-			DB    'REPORT'
-			DB    0
-			DB    0F3H
-			DB    'READ'
-			DB    0F4H
-			DB    'REM'
-			DB    0F9H
-			DB    'RUN'
-			DB    0
-			DB    0B2H
-			DB    'RAD'
-			DB    0F7H
-			DB    'RESTORE'
-			DB    0C2H
-			DB    'RIGHT$('
-			DB    0B3H
-			DB    'RND'
-			DB    0
-			DB    0CCH
-			DB    'RENUMBER'
-			DB    88H
-			DB    'STEP'
-			DB    0CDH
-			DB    'SAVE'
-			DB    0B4H
-			DB    'SGN'
-			DB    0B5H
-			DB    'SIN'
-			DB    0B6H
-			DB    'SQR'
-			DB    89H
-			DB    'SPC'
-			DB    0C3H
-			DB    'STR$'
-			DB    0C4H
-			DB    'STRING$('
-			DB    0D4H
-			DB    'SOUND'
-			DB    0FAH
-			DB    'STOP'
-			DB    0
-			DB    0B7H
-			DB    'TAN'
-			DB    8CH
-			DB    'THEN'
-			DB    0B8H
-			DB    'TO'
-			DB    8AH
-			DB    'TAB('
-			DB    0FCH
-			DB    'TRACE'
-			DB    91H
-			DB    'TIME'
-			DB    0
-			DB    0B9H
-			DB    'TRUE'
-			DB    0
-			DB    0FDH
-			DB    'UNTIL'
-			DB    0BAH
-			DB    'USR'
-			DB    0EFH
-			DB    'VDU'
-			DB    0BBH
-			DB    'VAL'
-			DB    0BCH
-			DB    'VPOS'
-			DB    0
-			DB    0FEH
-			DB    'WIDTH'
-			DB    0D3H
-			DB    'HIMEM'
-			DB    0D2H
-			DB    'LOMEM'
-			DB    0D0H
-			DB    'PAGE'
-			DB    0CFH
-			DB    'PTR'
-			DB    0D1H
-			DB    'TIME'
-			DB    1
-			DB    'Missing '
-			DB    2
-			DB    'No such '
-			DB    3
-			DB    'Bad '
-			DB    4
-			DB    ' range'
-			DB    5
-			DB    'variable'
-			DB    6
-			DB    'Out of'
-			DB    7
-			DB    'No '
-			DB    8
-			DB    ' space'
+KEYWDS:			DB    80H, 'AND'
+			DB    94H, 'ABS'
+			DB    95H, 'ACS'
+			DB    96H, 'ADVAL'
+			DB    97H, 'ASC'
+			DB    98H, 'ASN'
+			DB    99H, 'ATN'
+			DB    C6H, 'AUTO'
+			DB    9AH, 'BGET', 0
+			DB    D5H, 'BPUT', 0
+			DB    FBH, 'COLOUR'
+			DB    FBH, 'COLOR'
+			DB    D6H, 'CALL'
+			DB    D7H, 'CHAIN'
+			DB    BDH, 'CHR$'
+			DB    D8H, 'CLEAR', 0
+			DB    D9H, 'CLOSE', 0
+			DB    DAH, 'CLG', 0
+			DB    DBH, 'CLS', 0
+			DB    9BH, 'COS'
+			DB    9CH, 'COUNT', 0
+			DB    DCH, 'DATA'
+			DB    9DH, 'DEG'
+			DB    DDH, 'DEF'
+			DB    C7H, 'DELETE'
+			DB    81H, 'DIV'
+			DB    DEH, 'DIM'
+			DB    DFH, 'DRAW'
+			DB    E1H, 'ENDPROC', 0
+			DB    E0H, 'END', 0
+			DB    E2H, 'ENVELOPE'
+			DB    8BH, 'ELSE'
+			DB    A0H, 'EVAL'
+			DB    9EH, 'ERL', 0
+			DB    85H, 'ERROR'
+			DB    C5H, 'EOF', 0
+			DB    82H, 'EOR'
+			DB    9FH, 'ERR', 0
+			DB    A1H, 'EXP'
+			DB    A2H, 'EXT', 0
+			DB    E3H, 'FOR'
+			DB    A3H, 'FALSE', 0
+			DB    A4H, 'FN'
+			DB    E5H, 'GOTO'
+			DB    BEH, 'GET$'
+			DB    A5H, 'GET'
+			DB    E4H, 'GOSUB'
+			DB    E6H, 'GCOL'
+			DB    93H, 'HIMEM', 0
+			DB    E8H, 'INPUT'
+			DB    E7H, 'IF'
+			DB    BFH, 'INKEY$'
+			DB    A6H, 'INKEY'
+			DB    A8H, 'INT'
+			DB    A7H, 'INSTR('
+			DB    C9H, 'LIST'
+			DB    86H, 'LINE'
+			DB    C8H, 'LOAD'
+			DB    92H, 'LOMEM', 0
+			DB    EAH, 'LOCAL'
+			DB    C0H, 'LEFT$('
+			DB    A9H, 'LEN'
+			DB    E9H, 'LET'
+			DB    ABH, 'LOG'
+			DB    AAH, 'LN'
+			DB    C1H, 'MID$('
+			DB    EBH, 'MODE'
+			DB    83H, 'MOD'
+			DB    ECH, 'MOVE'
+			DB    EDH, 'NEXT'
+			DB    CAH, 'NEW', 0
+			DB    ACH, 'NOT'
+			DB    CBH, 'OLD', 0
+			DB    EEH, 'ON'
+			DB    87H, 'OFF'
+			DB    84H, 'OR'
+			DB    8EH, 'OPENIN'
+			DB    AEH, 'OPENOUT'
+			DB    ADH, 'OPENUP'
+			DB    FFH, 'OSCLI'
+			DB    F1H, 'PRINT'
+			DB    90H, 'PAGE', 0
+			DB    8FH, 'PTR', 0
+			DB    AFH, 'PI', 0
+			DB    F0H, 'PLOT'
+			DB    B0H, 'POINT('
+			DB    F2H, 'PROC'
+			DB    B1H, 'POS', 0
+			DB    CEH, 'PUT'
+			DB    F8H, 'RETURN', 0
+			DB    F5H, 'REPEAT'
+			DB    F6H, 'REPORT', 0
+			DB    F3H, 'READ'
+			DB    F4H, 'REM'
+			DB    F9H, 'RUN', 0
+			DB    B2H, 'RAD'
+			DB    F7H, 'RESTORE'
+			DB    C2H, 'RIGHT$('
+			DB    B3H, 'RND', 0
+			DB    CCH, 'RENUMBER'
+			DB    88H, 'STEP'
+			DB    CDH, 'SAVE'
+			DB    B4H, 'SGN'
+			DB    B5H, 'SIN'
+			DB    B6H, 'SQR'
+			DB    89H, 'SPC'
+			DB    C3H, 'STR$'
+			DB    C4H, 'STRING$('
+			DB    D4H, 'SOUND'
+			DB    FAH, 'STOP', 0
+			DB    B7H, 'TAN'
+			DB    8CH, 'THEN'
+			DB    B8H, 'TO'
+			DB    8AH, 'TAB('
+			DB    FCH, 'TRACE'
+			DB    91H, 'TIME', 0
+			DB    B9H, 'TRUE', 0
+			DB    FDH, 'UNTIL'
+			DB    BAH, 'USR'
+			DB    EFH, 'VDU'
+			DB    BBH, 'VAL'
+			DB    BCH, 'VPOS', 0
+			DB    FEH, 'WIDTH'
+			DB    D3H, 'HIMEM'
+			DB    D2H, 'LOMEM'
+			DB    D0H, 'PAGE'
+			DB    CFH, 'PTR'
+			DB    D1H, 'TIME'
+;
+; These are indexed from the ERRWDS table
+;
+			DB    01H, 'Missing '
+			DB    02H, 'No such '
+			DB    03H, 'Bad '
+			DB    04H, ' range'
+			DB    05H, 'variable'
+			DB    06H, 'Out of'
+			DB    07H, 'No '
+			DB    08H, ' space'
+
 KEYWDL:			EQU     $-KEYWDS
 			DW    -1
 ;
-;ERROR MESSAGES:
+; Error messages
 ;
-ERRWDS:			DB    7
-			DB    'room'
-			DB    0
-			DB    6
-			DB    4
-			DB    0
-			DW    0
-			DB    'Mistake'
-			DB    0
-			DB    1
-			DB    ','
-			DB    0
-			DB    'Type mismatch'
-			DB    0
-			DB    7
-			DB    FN
-			DW    0
-			DB    1
-			DB    34		;ASCII ""
-			DB    0
-			DB    3
-			DB    DIM
-			DB    0
-			DB    DIM
-			DB    8
-			DB    0
-			DB    'Not '
-			DB    LOCAL_
-			DB    0
-			DB    7
-			DB    PROC
-			DB    0
-			DB    'Array'
-			DB    0
-			DB    'Subscript'
-			DB    0
-			DB    'Syntax error'
-			DB    0
-			DB    'Escape'
-			DB    0
-			DB    'Division by zero'
-			DB    0
-			DB    'String too long'
-			DB    0
-			DB    'Too big'
-			DB    0
-			DB    '-ve root'
-			DB    0
-			DB    'Log'
-			DB    4
-			DB    0
-			DB    'Accuracy lost'
-			DB    0
-			DB    'Exp'
-			DB    4
-			DW    0
-			DB    2
-			DB    5
-			DB    0
-			DB    1
-			DB    ')'
-			DB    0
-			DB    3
-			DB    'HEX'
-			DB    0
-			DB    2
-			DB    FN
-			DB    '/'
-			DB    PROC
-			DB    0
-			DB    3
-			DB    'call'
-			DB    0
-			DB    'Arguments'
-			DB    0
-			DB    7
-			DB    FOR
-			DB    0
-			DB    "Can't match "
-			DB    FOR
-			DB    0
-			DB    FOR
-			DB    ' '
-			DB    5
-			DW    0
-			DB    7
-			DB    TO
-			DW    0
-			DB    7
-			DB    GOSUB
-			DB    0
-			DB    ON_
-			DB    ' syntax'
-			DB    0
-			DB    ON_
-			DB    4
-			DB    0
-			DB    2
-			DB    'line'
-			DB    0
-			DB    6
-			DB    ' '
-			DB    DATA_
-			DB    0
-			DB    7
-			DB    REPEAT
-			DW    0
-			DB    1
-			DB    '#'
-			DB    0
+ERRWDS:			DB    7, 'room', 0		;  0: No room
+			DB    6, 4, 0			;  1: Out of range
+			DB    0				;  2: *
+			DB    0				;  3: *
+			DB    'Mistake', 0		;  4: Mistake
+			DB    1, ',', 0			;  5: Missing ,
+			DB    'Type mismatch', 0	;  6: Type mismatch
+			DB    7, FN, 0			;  7: No FN
+			DB    0				;  8: *
+			DB    1, 34, 0			;  9: Missing "
+			DB    3, DIM, 0			; 10: Bad DIM
+			DB    DIM, 8, 0			; 11: DIM space
+			DB    'Not ', LOCAL_, 0		; 12: Not LOCAL
+			DB    7, PROC, 0		; 13: No PROC
+			DB    'Array', 0		; 14: Array
+			DB    'Subscript', 0		; 15: Subscript
+			DB    'Syntax error', 0		; 16: Syntax error
+			DB    'Escape', 0		; 17: Escape
+			DB    'Division by zero', 0	; 18: Division by zero
+			DB    'String too long', 0	; 19: String too long
+			DB    'Too big', 0		; 20: Too big
+			DB    '-ve root', 0		; 21: -ve root
+			DB    'Log', 4, 0		; 22: Log range
+			DB    'Accuracy lost', 0	; 23: Accuracy lost
+			DB    'Exp', 4, 0		; 24: Exp range
+			DB    0				; 25: *
+			DB    2, 5, 0			; 26: No such variable
+			DB    1, ')', 0			; 27: Missing )
+			DB    3, 'HEX', 0		; 28: Bad HEX
+			DB    2, FN, '/', PROC, 0	; 29: No such FN/PROC
+			DB    3, 'call', 0		; 30: Bad call
+			DB    'Arguments', 0		; 31: Arguments
+			DB    7, FOR, 0			; 32: No FOR
+			DB    "Can't match ", FOR, 0	; 33: Can't match FOR
+			DB    FOR, ' ', 5, 0		; 34: FOR variable
+			DB    0				; 35: *
+			DB    7, TO, 0			; 36: No TO
+			DB    0				; 37: *
+			DB    7, GOSUB, 0		; 38: No GOSUB
+			DB    ON_, ' syntax', 0		; 39: ON syntax
+			DB    ON_, 4, 0			; 40: ON range
+			DB    2, 'line', 0		; 41: No such line
+			DB    6, ' ', DATA_, 0		; 42: Out of DATA
+			DB    7, REPEAT, 0		; 43: No REPEAT
+			DB    0				; 44 *
+			DB    1, '#', 0			; 45: Missing #
 ;
 ;COMMANDS:
 ;
 ;DELETE line,line
 ;
-DELETE:			CALL    SETTOP          ;SET TOP
-			CALL    DLPAIR
-DELET1:			LD      A,(HL)
-			OR      A
-			JR      Z,WARMNC
-			INC     HL
-			LD      E,(HL)
+DELETE:			CALL    SETTOP          	; Set TOP sysvar (first free byte at end of BASIC program)
+			CALL    DLPAIR			; Get the line number pair - HL: BASIC program address, BC: second number (or 0 if missing)
+DELET1:			LD      A,(HL)			; Check whether it's the last line
+			OR      A			
+			JR      Z,WARMNC		; Yes, so do nothing
+			INC     HL			; Skip the line length byte
+			LD      E,(HL)			; Fetch the line number in DE
 			INC     HL
 			LD      D,(HL)
-			LD      A,D
+			LD      A,D			; If the line number is zero then
 			OR      E
-			JR      Z,CLOOP1        ;LINE NUMBER ZERO
+			JR      Z,CLOOP1        	; Do nothing
+			DEC     HL			; Decrement BASIC program pointer back to length
 			DEC     HL
-			DEC     HL
-			EX      DE,HL
+			EX      DE,HL			; Check if we've gone past the terminating line
 			SCF
 			SBC     HL,BC
 			EX      DE,HL
-			JR      NC,WARMNC
-			PUSH    BC
-			CALL    DEL
+			JR      NC,WARMNC		; Yes, so exit back to BASIC prompt
+			PUSH    BC			
+			CALL    DEL			; Delete the line pointed to by HL
 			POP     BC
-			JR      DELET1
+			JR      DELET1			; And loop round to the next line
 ;
-;LISTO expr
+; LISTO expr
 ;
-LISTO:			INC     IY              ;SKIP "O"
-			CALL    EXPRI
+LISTO:			INC     IY              	; Skip "O" byte
+			CALL    EXPRI			; Get expr
 			EXX
-			LD      A,L
-			LD      (LISTON),A
+			LD      A,L			
+			LD      (LISTON),A		; Store in LISTON sysvar
 CLOOP1:			JP      CLOOP
 ;
-;LIST
-;LIST line
-;LIST line,line [IF string]
-;LIST ,line
-;LIST line,
+; LIST
+; LIST line
+; LIST line,line [IF string]
+; LIST ,line
+; LIST line,
 ;
-LIST_:			CP      'O'
-			JR      Z,LISTO
-			CALL    DLPAIR
-			CALL    NXT
-			CP      TIF             ;IF CLAUSE ?
-			LD      A,0             ;INIT IF-CLAUSE LENGTH
-			JR      NZ,LISTB
-			INC     IY              ;SKIP IF
-			CALL    NXT             ;SKIP SPACES (IF ANY)
-			EX      DE,HL
-			PUSH    IY
-			POP     HL              ;HL ADDRESSES IF CLAUSE
-			LD      A,CR
-			PUSH    BC
+LIST_:			CP      'O'			; Check for O (LISTO)
+			JR      Z,LISTO			; and jump to LISTO if zero
+			CALL    DLPAIR			; Get the line number pair - HL: BASIC program address, BC: second number (or 0 if missing)
+			CALL    NXT			; Skip space
+			CP      TIF             	; Check for IF clause (token IF)
+			LD      A,0             	; Initialise the IF clause string length
+			JR      NZ,LISTB		; If there is no IF clause, skip the next bit
+;
+			INC     IY              	; Skip the IF token
+			CALL    NXT             	; And skip any spaces
+			EX      DE,HL			; DE: Address in memory
+			PUSH    IY			; LD IY, HL
+			POP     HL              	; HL is now the address of the tokenised line
+			LD      A,CR			
+			PUSH    BC			; Stack the second line number arg
 			LD      BC,256
-			CPIR                    ;LOCATE CR
+			CPIR                    	; Locate CR byte
 			LD      A,C
-			CPL                     ;A = SUBSTRING LENGTH
-			POP     BC
-			EX      DE,HL
-LISTB:			LD      E,A             ;IF-CLAUSE LENGTH
-			LD      A,B
+			CPL                    	 	; A: Substring length (of IF clause)
+			POP     BC			; Restore the second line number arg
+			EX      DE,HL			; HL: Address in memory
+;
+LISTB:			LD      E,A             	; E: IF clause string length
+			LD      A,B			; Check whether a second line number was passed (BC!=0)
 			OR      C
-			JR      NZ,LISTA
-			DEC     BC
+			JR      NZ,LISTA		; If there isn't a second line number
+			DEC     BC			; then we set it to the maximum of 65535
+;
 LISTA:			EXX
-			LD      IX,LISTON
-			LD      BC,0            ;INDENTATION COUNT
+			LD      IX,LISTON		; IX : Pointer to the LISTON (LISTO and OPT) sysvar
+			LD      BC,0            	; BC': Indentation counter
 			EXX
-			LD      A,20
+			LD      A,20			; Number of lines to list
 ;
-LISTC:			PUSH    BC              ;SAVE HIGH LINE NUMBER
-			PUSH    DE              ;SAVE IF-CLAUSE LENGTH
-			PUSH    HL              ;SAVE PROGRAM POINTER
+LISTC:			PUSH    BC              	; Save second line number
+			PUSH    DE              	; Save IF clause length
+			PUSH    HL              	; Save BASIC program counter
 			EX      AF,AF'
-			LD      A,(HL)
-			OR      A
-			JR      Z,WARMNC
 ;
-;CHECK IF PAST TERMINATING LINE NUMBER:
+; BBC BASIC for Z80 lines are stored as follows:
 ;
-			LD      A,E             ;A = IF-CLAUSE LENGTH
+; - [LEN] [LSB] [MSB] [DATA...] [0x0D]: LSB, MSB = line number
+; - [&00] [&FF] [&FF]: End of program marker
+;
+; This is the Russell format and different to the Wilson/Acorn format: https://www.beebwiki.mdfs.net/Program_format
+;
+			LD      A,(HL)			; Check for end of program marker
+			OR      A			; If found
+			JR      Z,WARMNC		; Jump to WARMNC (F=NC, so will jump to WARM)
+;
+; Check if past terminating line number
+;
+			LD      A,E             	; A: IF clause length
+			INC     HL			; Skip the length byte	
+			LD      E,(HL)			; Fetch the line number in DE
 			INC     HL
-			LD      E,(HL)
-			INC     HL
-			LD      D,(HL)          ;DE = LINE NUMBER
+			LD      D,(HL)          
+			DEC     HL			; Step HL back to the length byte	
 			DEC     HL
-			DEC     HL
-			PUSH    DE              ;SAVE LINE NUMBER
-			EX      DE,HL
-			SCF
+			PUSH    DE             	 	; Push the line number on the stack
+			EX      DE,HL			; HL: line number
+			SCF				; Do a 16-bit compare of HL and DE
 			SBC     HL,BC
 			EX      DE,HL
-			POP     DE              ;RESTORE LINE NUMBER
-WARMNC:			JP      NC,WARM
-			LD      C,(HL)          ;C = LINE LENGTH + 4
-			LD      B,A             ;B = IF-CLAUSE LENGTH
+			POP     DE              	; Restore the line number
+WARMNC:			JP      NC,WARM			; If exceeded the terminating line number then jump to WARM
+			LD      C,(HL)          	; C: Line length + 4
+			LD      B,A             	; B: IF clause length
 ;
-;CHECK IF "UNLISTABLE":
+; Check if "UNLISTABLE":
 ;
-			LD      A,D
+			LD      A,D			; TODO: What is "UNLISTABLE?"
 			OR      E
 			JP      Z,CLOOP
 ;
-;CHECK FOR IF CLAUSE:
+; Check for IF clause:
 ;
-			INC     HL
-			INC     HL
-			INC     HL              ;HL ADDRESSES LINE TEXT
+			INC     HL			; Skip the length
+			INC     HL			; Skip the line number
+			INC     HL              	; HL: Address of the tokenised BASIC line
+			DEC     C			;  C: Line length
 			DEC     C
 			DEC     C
-			DEC     C
-			DEC     C               ;C = LINE LENGTH
-			PUSH    DE              ;SAVE LINE NUMBER
-			PUSH    HL              ;SAVE LINE ADDRESS
-			XOR     A               ;A <- 0
-			CP      B               ;WAS THERE AN IF-CLAUSE
-			PUSH    IY
-			POP     DE              ;DE ADDRESSES IF-CLAUSE
-			CALL    NZ,SEARCH       ;SEARCH FOR IF CLAUSE
-			POP     HL              ;RESTORE LINE ADDRESS
-			POP     DE              ;RESTORE LINE NUMBER
-			PUSH    IY
-			CALL    Z,LISTIT        ;LIST IF MATCH
+			DEC     C              	
+			PUSH    DE              	; Save the line number
+			PUSH    HL              	; Save the BASIC program address
+			XOR     A               	;
+			CP      B              	 	; Check for an IF clause (B!=0)
+			PUSH    IY			; LD IY, DE
+			POP     DE              	; DE: Address of the IF clause string in the input buffer
+			CALL    NZ,SEARCH      		; If there is an IF clause (B!=0) then search for it
+			POP     HL              	; Restore BASIC program address
+			POP     DE              	; Restore line number
+			PUSH    IY			
+			CALL    Z,LISTIT        	; List if no IF clause OR there is an IF clause match
 			POP     IY
 ;
 			EX      AF,AF'
-			DEC     A
-			CALL    LTRAP
-			POP     HL              ;RESTORE POINTER
-			LD      E,(HL)
+			DEC     A			; Decrement line list counter
+			CALL    LTRAP			; TODO: This destroys A - is this a bug I've introduced in LTRAP?
+			POP     HL             	 	; Restore BASIC program address to beginning of line
+			LD      E,(HL)			; Fetch the length of line in DE
 			LD      D,0
-			ADD     HL,DE           ;ADDRESS NEXT LINE
-			POP     DE              ;RESTORE IF-CLAUSE LEN
-			POP     BC              ;RESTORE HI LINE NUMBER
-			JR      LISTC
+			ADD     HL,DE           	; Go to the next line
+			POP     DE              	; Restore IF clause length
+			POP     BC              	; Restore second line number
+			JR      LISTC			; Loop back to do next line
 ;
 ;RENUMBER
 ;RENUMBER start
 ;RENUMBER start,increment
 ;RENUMBER ,increment
 ;
-RENUM:			CALL    CLEAR           ;USES DYNAMIC AREA
-			CALL    PAIR            ;LOAD HL,BC
+RENUM:			CALL    CLEAR           	; Uses the dynamic area
+			CALL    PAIR            	; LOAD HL,BC
 			EXX
 			LD      HL,(PAGE_)
 			LD      DE,(LOMEM)
@@ -988,29 +792,29 @@ NEW:			CALL    NEWIT
 ;
 ;OLD
 ;
-OLD:			LD      HL,(PAGE_)
-			PUSH    HL
+OLD:			LD      HL,(PAGE_)		; HL: The start of the BASIC program area
+			PUSH    HL			; Stack it
+			INC     HL			; Skip the potential length byte of first line of code
+			INC     HL			; And the line number word
 			INC     HL
-			INC     HL
-			INC     HL
-			LD      BC,252
+			LD      BC,252			; Look for a CR in the first 252 bytes of code; maximum line length
 			LD      A,CR
 			CPIR
-			JR      NZ,BAD
-			LD      A,L
-			POP     HL
-			LD      (HL),A
-			CALL    CLEAN
-CLOOP0:			JP      CLOOP
+			JR      NZ,BAD			; If not found, then the first line of code is not a valid BBC BASIC code
+			LD      A,L			; It could still be garbage though! Store the position in A; this requires
+			POP     HL			; PAGE to be on a 256 page boundary, and is now the length of the first line
+			LD      (HL),A			; Restore the length byte (this will have been set to 0 by NEW)
+			CALL    CLEAN			; Further checks for bad program, set TOP, write out &FFFF end of program marker
+CLOOP0:			JP      CLOOP			; Jump back to the command loop
 ;
 ;LOAD filename
 ;
-LOAD:			CALL    EXPRS           ;GET FILENAME
-			LD      A,CR
-			LD      (DE),A
-			CALL    LOAD0
-			CALL    CLEAR
-			JR      WARM0
+LOAD:			CALL    EXPRS           	; Get the filename
+			LD      A,CR			; DE points to the last byte of filename in ACCS
+			LD      (DE),A			; Terminate filename with a CR
+			CALL    LOAD0			; Load the file in, then CLEAN
+			CALL    CLEAR			; Further checks for bad program, set TOP, write out &FFFF end of program marker
+			JR      WARM0			; Jump back to the command loop
 ;
 ;SAVE filename
 ;
@@ -1027,50 +831,76 @@ SAVE:			CALL    SETTOP          ;SET TOP
 			LD      HL,ACCS
 			CALL    OSSAVE
 WARM0:			JP      WARM
+
 ;
-;ERROR
+; ERROR
+; Called whenever BASIC needs to halt with an error
+; Error messages are indexed from 0
+; Inputs:
+;  A: Error number
 ;
-ERROR_:			LD      SP,(HIMEM)
-			LD      HL,ERRWDS
-			OR      A
-			JR      Z,ERROR1
-			LD      B,A             ;ERROR NUMBER
-			EX      AF,AF'
+ERROR_:			LD      SP,(HIMEM)		; Set SP to HIMEM
+			LD      HL,ERRWDS		; Index into the error string table
+			OR      A			; We don't need to search for the first error
+			JR      Z,ERROR1		; So skip the search routine
+;
+; Search the error table for error #A
+; HL will end up being the pointer into the correct error
+; There is no bounds checking on this, so invalid error numbers will probably output garbage
+;
+			LD      B,A             	; Store error number in B
+			EX      AF,AF'			; Store error number in AF'
 			XOR     A
-ERROR0:			CP      (HL)
-			INC     HL
-			JR      NZ,ERROR0
-			DJNZ    ERROR0
-			EX      AF,AF'
-ERROR1:			PUSH    HL
-EXTERR:			POP     HL
-			LD      (ERRTXT),HL
-			LD      SP,(HIMEM)
-			LD      (ERR),A
-			CALL    SETLIN
-			LD      (ERL),HL
-			OR      A
-			JR      Z,ERROR2
-			LD      HL,(ERRTRP)
+ERROR0:			CP      (HL)			; Compare the character with 0 (the terminator byte)
+			INC     HL			; Increment the string pointer
+			JR      NZ,ERROR0		; Loop until with hit a 0
+			DJNZ    ERROR0			; Decrements the error number and loop until 0
+			EX      AF,AF'			; Restore the error number from AF'
+;
+; At this point HL points to the tokenised error string
+;
+ERROR1:			PUSH    HL			; Stack the error string pointer and fall through to EXTERR
+
+; 
+; EXTERR
+; Inputs:
+;  A: Error number
+;
+; This is the entry point for external errors, i.e. ones not in the ERRWDS table
+; The error text immediately follows the CALL to EXTERR, for example:
+; > CALL  EXTERR
+; > DB    "Silly", 0
+; So we can get the address of the string by popping the return address off the stack
+;			
+EXTERR:			POP     HL			; Pop the error string pointer
+			LD      (ERRTXT),HL		; Store in ERRTXT sysvar
+			LD      SP,(HIMEM)		; Set SP to HIMEM
+			LD      (ERR),A			; Store error number in ERR sysvar
+			CALL    SETLIN			; Get line number
+			LD      (ERL),HL		; Store in ERL sysvar
+			OR      A			; Is error number 0?
+			JR      Z,ERROR2		; Yes, so skip the next bit as error number 0 is untrappable
+;
+			LD      HL,(ERRTRP)		; Check whether the error is trapped
 			LD      A,H
 			OR      L
-			PUSH    HL
-			POP     IY
-			JP      NZ,XEQ          ;ERROR TRAPPED
+			PUSH    HL			; HL: Error line
+			POP     IY			; IY: HL
+			JP      NZ,XEQ         	 	; If error trapped, jump to XEQ
+;
 ERROR2:			LD      HL,0
-			LD      (AUTONO),HL
-			LD      (TRACEN),HL     ;CANCEL TRACE
-			CALL    RESET           ;RESET OPSYS
-			CALL    CRLF
-			CALL    REPORT          ;MESSAGE
-			CALL    SAYLN
-			LD      E,0
-			CALL    C,OSSHUT        ;CLOSE ALL FILES
-			CALL    CRLF
-			JP      CLOOP
+			LD      (AUTONO),HL		; Cancel AUTO
+			LD      (TRACEN),HL     	; Cancel TRACE
+			CALL    RESET           	; Reset OPSYS
+			CALL    CRLF			; Output newline
+			CALL    REPORT          	; Output the error message
+			CALL    SAYLN			; Output " at line nnnn" message.
+			LD      E,0			; Close all files
+			CALL    C,OSSHUT        	
+			CALL    CRLF			; Output newline
+			JP      CLOOP			; Back to CLOOP
 ;
 ;SUBROUTINES:
-;
 ;
 ;LEX - SEARCH FOR KEYWORDS
 ;   Inputs: HL = start of keyword table
@@ -1146,41 +976,47 @@ DEL:			PUSH    DE
 ; AND WRITE FF FF, THEN LOAD (TOP).
 ; Destroys: A,B,C,H,L,F
 ;
-LOAD0: 			LD      DE,(PAGE_)
-			LD      HL,-256
-			ADD     HL,SP
-			SBC     HL,DE           ;FIND AVAILABLE SPACE
+LOAD0: 			LD      DE,(PAGE_)		; DE: Beginning of BASIC program area
+			LD      HL,-256			
+			ADD     HL,SP			
+			SBC     HL,DE           	; Find available space
 			LD      B,H
 			LD      C,L
 			LD      HL,ACCS
-			CALL    OSLOAD          ;LOAD
-			CALL    NC,NEWIT
+			CALL    OSLOAD          	; Call the OSLOAD function in patch
+			CALL    NC,NEWIT		; If NC then NEW
 			LD      A,0
-			JP      NC,ERROR_        ;"No room"
-CLEAN:			CALL    SETTOP
-			DEC     HL
-			LD      (HL),-1         ;WRITE &FFFF
+			JP      NC,ERROR_        	; And trigger a "No room" error, otherwise...
+;							
+CLEAN:			CALL    SETTOP			; Set TOP sysvar
+			DEC     HL			; Write out the end of program markers
+			LD      (HL),-1         	
 			DEC     HL
 			LD      (HL),-1
-			JR      CLEAR
+			JR      CLEAR			; Clear all dynamic variables and function/procedure pointers
 ;
-SETTOP:			LD      HL,(PAGE_)
-			LD      B,0
-			LD      A,CR
-SETOP1:			LD      C,(HL)
-			INC     C
+; Set the TOP sysvar; the first free location after the end of the current program
+; Returns:
+; - HL: TOP
+;
+SETTOP:			LD      HL,(PAGE_)		; Start at beginning of BASIC program area
+			LD      B,0			;  B: 0
+			LD      A,CR			; End of line marker
+SETOP1:			LD      C,(HL)			; BC: Get first byte of program line (line length)
+			INC     C			; Check for zero
 			DEC     C
-			JR      Z,SETOP2
-			ADD     HL,BC
-			DEC     HL
+			JR      Z,SETOP2		; If it is zero, we've reached the end
+			ADD     HL,BC			; Skip to next line 
+			DEC     HL			; Check end of previous line
 			CP      (HL)
 			INC     HL
-			JR      Z,SETOP1
-			JP      BAD
-SETOP2:			INC     HL              ;N.B. CALLED FROM NEWIT
+			JR      Z,SETOP1		; If CR then loop
+			JP      BAD			; If anything else, then something has gone wrong - trip a Bad Program error
+;
+SETOP2:			INC     HL             		; Skip the 3 byte end of program marker (&00, &FF, &FF)
+			INC     HL			; NB: Called from NEWIT
 			INC     HL
-			INC     HL
-			LD      (TOP),HL
+			LD      (TOP),HL		; Store in TOP sysvar
 			RET
 ;
 ;NEWIT - NEW PROGRAM THEN CLEAR
@@ -1190,21 +1026,22 @@ SETOP2:			INC     HL              ;N.B. CALLED FROM NEWIT
 ; FUNCTION AND PROCEDURE POINTERS.
 ;   Destroys: Nothing
 ;
-NEWIT:			LD      HL,(PAGE_)
-			LD      (HL),0
-			CALL    SETOP2
-CLEAR:			PUSH    HL
-			LD      HL,(TOP)
-			LD      (LOMEM),HL
-			LD      (FREE),HL
-			LD      HL,DYNVAR
-			PUSH    BC
-			LD      B,2*(54+2)
-CLEAR1:			LD      (HL),0
+NEWIT:			LD      HL,(PAGE_)		; HL: First byte of BASIC program area
+			LD      (HL),0			; Stick a 0 in there
+			CALL    SETOP2			; Skip three bytes to get to end of empty BASIC program area and set TOP sysvar
+;
+CLEAR:			PUSH    HL			; Stack the BASIC program pointer
+			LD      HL,(TOP)		; Get the TOP sysvar - first available byte after BASIC
+			LD      (LOMEM),HL		; Set the LOMEM sysvar
+			LD      (FREE),HL		; And the FREE sysvar with that value
+			LD      HL,DYNVAR		; Get the pointer to the dynamic variable pointers buffer in RAM
+			PUSH    BC			
+			LD      B,2*(54+2)		; Loop counter
+CLEAR1:			LD      (HL),0			; Clear the dynamic variable pointers
 			INC     HL
 			DJNZ    CLEAR1
 			POP     BC
-			POP     HL
+			POP     HL			; Restore the BASIC program pointer
 			RET
 ;
 ;LISTIT - LIST A PROGRAM LINE.
@@ -1403,47 +1240,46 @@ SET3:			LD      HL,0
 ;           Carry=1 if line number is non-zero.
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-SAYLN:			LD      HL,(LINENO)
-			LD      A,H
-			OR      L
-			RET     Z
-			CALL    TELL
-			DB    ' at line '
-			DB    0
-PBCDL:			LD      C,0
-			JR      PBCD0
+SAYLN:			LD      HL,(LINENO)		; Get the LINENO sysvar
+			LD      A,H			; If it is zero then
+			OR      L			
+			RET     Z			; Don't need to do anything; return with F:C set to 0
+			CALL    TELL			; Output the error message
+			DB    ' at line ',0		
+PBCDL:			LD      C,0			; C: Leading character (NUL)
+			JR      PBCD0			; Output the line number; return with F:C set to 1
 ;
 ;PBCD - PRINT NUMBER AS DECIMAL INTEGER.
 ;   Inputs: HL = number (binary).
 ;  Outputs: Carry = 1
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-PBCD:			LD      C,' '
-PBCD0:			LD      B,5
-			LD      DE,10000
-PBCD1:			XOR     A
-PBCD2:			SBC     HL,DE
+PBCD:			LD      C,' '			; C: Leading character (" ")
+PBCD0:			LD      B,5			; Number of digits in result
+			LD      DE,10000		; Start off with the 10,000 column
+PBCD1:			XOR     A			; Counter
+PBCD2:			SBC     HL,DE			; Loop and count how many 10,000s we have
 			INC     A
 			JR      NC,PBCD2
-			ADD     HL,DE
-			DEC     A
-			JR      Z,PBCD3
-			SET     4,C
+			ADD     HL,DE			; The loop overruns by one, so adjust here
+			DEC     A			; A: Number of 10,000s
+			JR      Z,PBCD3			; If it is 0, then skip the next bit
+			SET     4,C			; C: Set to '0' ASCII (30h)
 			SET     5,C
-PBCD3:			OR      C
-			CALL    NZ,OUTCHR
-			LD      A,B
-			CP      5
-			JR      Z,PBCD4
-			ADD     HL,HL
-			LD      D,H
-			LD      E,L
-			ADD     HL,HL
-			ADD     HL,HL
-			ADD     HL,DE
-PBCD4:			LD      DE,1000
-			DJNZ    PBCD1
-			SCF
+PBCD3:			OR      C			; A is then an ASCII character, or 00h if we've not processed any non-zero digits yet
+			CALL    NZ,OUTCHR		; If it is not a leading NUL character then output it
+			LD      A,B			; If on first transition, skip this
+			CP      5			; TODO: Need to find out why 
+			JR      Z,PBCD4			 
+			ADD     HL,HL			; HL x  2 : We shift the number being tested left,
+			LD      D,H			;         : rather than shifting DE right
+			LD      E,L			;         : This makes a lot of sense
+			ADD     HL,HL			; HL x  4
+			ADD     HL,HL			; HL x  8
+			ADD     HL,DE			; HL x 10
+PBCD4:			LD      DE,1000			; Set the column heading to 1,000s for subsequent runs
+			DJNZ    PBCD1			; Loop until done
+			SCF				; SCF set for SAYLN in this module
 			RET
 ;
 ;PUTVAR - CREATE VARIABLE AND INITIALISE TO ZERO.
