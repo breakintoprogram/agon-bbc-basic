@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	19/08/2022
+; Last Updated:	24/09/2022
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -10,6 +10,8 @@
 ; 05/08/2022:	Implemented OSSTAT, assumes MOS will save registers in file I/O commands
 ; 07/08/2022:	Added CLG, COLOUR, and emulated palette mode for COLOUR and GCOL, fixed GETCSR
 ; 19/08/2022:	Moved GETSCHR, POINT to agon_graphics.asm, optimised GETCSR, added SOUND
+; 19/09/2022:	Added STAR_REN, improved filename parsing for star commands, moved SOUND to agon_sound.asm
+; 24/09/2022:	Added STAR_MKDIR, STAR_EDIT; file errors for MOS commands LOAD, SAVE, CD, ERASE, REN, DIR
 			
 			.ASSUME	ADL = 0
 				
@@ -33,7 +35,6 @@
 			XDEF	LTRAP
 			XDEF	OSINIT
 			XDEF	OSCLI
-			XDEF	SOUND
 			XDEF	OSBPUT
 			XDEF	OSBGET
 			XDEF	OSSTAT
@@ -61,9 +62,16 @@
 			XREF	COMMA
 			XREF	XEQ
 			XREF	NXT
-			XREF	CRTONULL
 			XREF	NULLTOCR
 			XREF	CRLF
+			XREF	CSTR_FNAME
+			XREF	FINDL
+			XREF	OUT_
+			XREF	ERROR_
+			XREF	DECODE
+			XREF	BUF_DETOKEN
+			XREF	BUF_PBCDL
+			XREF	ONEDIT
 
 ; OSWRCH: Write a character out to the ESP32 VDU handler via the MOS
 ; A: Character to write
@@ -80,9 +88,11 @@ OSRDCH:			MOSCALL	mos_getkey
 
 ; OSLINE: Invoke the line editor
 ;
-OSLINE:			PUSH	IY
+OSLINE:			LD 	E, 1			; Default is to clear the buffer
+;
+OSLINE1:		PUSH	IY			; Entry point to not clear buffer
 			PUSH	HL			; Buffer address
-			LD	BC, 255			; Buffer length
+			LD	BC, 256			; Buffer length
 			MOSCALL	mos_editline		; Call the MOS line editor
 			POP	HL			; Pop the address
 			POP	IY
@@ -121,11 +131,11 @@ GETIME:			PUSH 	IX
 
 ; PUTCSR: move to cursor to x=DE, y=HL
 ;
-PUTCSR:			LD	A, 1Fh				; TAB
+PUTCSR:			LD	A, 1Fh			; TAB
 			RST.LIS	10h
-			LD	A, E				; X
+			LD	A, E			; X
 			RST.LIS 10h
-			LD	A, L				; Y
+			LD	A, L			; Y
 			RST.LIS 10h
 			RET
 
@@ -158,29 +168,29 @@ PROMPT: 		LD	A,'>'
 ;           If carry set A = character
 ; Destroys: A,H,L,F
 ;
-OSKEY: 			MOSCALL	mos_getkey	; Read keyboard
-			OR	A		; If we have a character
-			JR	NZ, $F		; Then process it
-			LD	A,H		; Check if HL is 0 (this is passed by INKEY() function
+OSKEY: 			MOSCALL	mos_getkey		; Read keyboard
+			OR	A			; If we have a character
+			JR	NZ, $F			; Then process it
+			LD	A,H			; Check if HL is 0 (this is passed by INKEY() function
 			OR	L
-			RET	Z 		; If it is then ret
-			HALT			; Bit of a bodge so this is timed in ms
-			DEC	HL 		; Decrement the counter and 
-			JR	OSKEY 		; loop
-$$:			CP	1BH		; If we are not pressing ESC, 
-			SCF 			; then flag we've got a character
+			RET	Z 			; If it is then ret
+			HALT				; Bit of a bodge so this is timed in ms
+			DEC	HL 			; Decrement the counter and 
+			JR	OSKEY 			; loop
+$$:			CP	1BH			; If we are not pressing ESC, 
+			SCF 				; then flag we've got a character
 			RET	NZ		
 ;
 ESCSET: 		PUSH    HL
         		LD      HL,FLAGS
-        		BIT     6,(HL)          ; ESC DISABLED?
+        		BIT     6,(HL)			; ESC DISABLED?
         		JR      NZ,ESCDIS
-        		SET     7,(HL)     	; SET ESCAPE FLAG
+        		SET     7,(HL)			; SET ESCAPE FLAG
 ESCDIS: 		POP     HL
         		RET	
 ;
 ESCTEST:		MOSCALL	mos_getkey
-			CP	1BH		; ESC	
+			CP	1BH			; ESC	
 			JR	Z,ESCSET
 			RET
 ;
@@ -277,75 +287,181 @@ UPPRC:  		AND     7FH
 
 ; Each command has bit 7 of the last character set, and is followed by the address of the handler
 ; These must be in alphabetical order
-;
+;		
 COMDS:  		DB	'BY','E'+80h		; BYE
 			DW	STAR_BYE
 			DB	'CA','T'+80h		; CAT
 			DW	STAR_CAT
 			DB	'C', 'D'+80h		; CD
 			DW	STAR_CD
+			DB	'EDI','T'+80h		; EDIT
+			DW	STAR_EDIT
 			DB	'ERAS','E'+80h		; ERASE
 			DW	STAR_ERASE
 			DB	'F','X'+80h		; FX
 			DW	STAR_FX
-			DB	0FFH	
+			DB	'MKDI','R'+80h		; MKDIR
+			DW	STAR_MKDIR		
+			DB	'RE','N'+80h		; REN
+			DW	STAR_REN
+			DB	FFh
 			
 ; *BYE
 ;
 STAR_BYE:		RST.LIS	00h			; Reset MOS
+	
+; *EDIT linenum
+;
+STAR_EDIT:		CALL	ASC_TO_NUMBER		; DE: Line number to edit
+			EX	DE, HL			; HL: Line number
+			CALL	FINDL			; HL: Address in RAM of tokenised line
+			LD	A, 41			; F:NZ If the line is not found
+			JP	NZ, ERROR_		; Do error 41: No such line in that case
+;
+; Loop through and detokenise this line
+; At this point HL is the first byte of the tokenised line
+;
+; BBC BASIC for Z80 lines are stored as follows:
+;
+; - [LEN] [LSB] [MSB] [DATA...] [0x0D]: LSB, MSB = line number
+;
+STAR_EDIT1:		LD	IX, ACCS		; Destination address
+;
+			CALL	PROMPT			; Display the prompt
+;
+			LD	A,(HL)			; Fetch the length from the BASIC line
+			SUB	4			; Get the data length
+			LD	B, A			; Store in B
+			INC 	HL
+;
+			LD	A, (HL)			; Line number low byte
+			INC	HL
+			PUSH	BC			; Preserve the data length counter
+			PUSH	HL			; Preserve the BASIC pointer 
+			LD	H, (HL)			; Line number high byte
+			LD	L, A
+			CALL	BUF_PBCDL		; Print out the line number
+			LD	(IX), ' '		; Followed by a space
+			INC	IX
+			POP	HL			; Unstack the BASIC pointer
+			POP	BC			; And the data length counter
+			INC	HL
+;
+; Now write out the rest of the line, dealing with any tokens along the way
+;
+$$:			LD	A,(HL)			; Fetch the data
+			INC	HL			; Skip to the next byte
+			CP	8Dh			; Is it a line number following a GOTO?
+			JR	Z, STAR_EDIT2		; Yes, so deal with that
+			CALL	BUF_DETOKEN		; Write to screen, detokenise tokens
+STAR_EDITL:		DJNZ	$B			; And loop
+			XOR	A
+			LD	(IX),A			; Write out the final byte
+;
+; Now invoke the editor
+;
+			LD	HL, ACCS		; HL: ACCS
+			LD	E, L			;  E: 0 - Don't clear the buffer; ACCS is on a page boundary so L is 0
+			CALL	OSLINE1			; Invoke the editor
+			JP	ONEDIT			; Jump back to the BASIC loop just after the normal line edit
+;
+STAR_EDIT2:		PUSH    HL			; LD IY,HL
+			POP     IY
+			PUSH    BC
+			CALL    DECODE			; Decode the 3 byte GOTO type line number
+			POP     BC
+			EXX				; The result is in HL'
+			PUSH    BC
+			CALL    BUF_PBCDL		; And output it
+			POP     BC
+			EXX
+			PUSH    IY			; LD HL,IY
+			POP     HL
+			DEC	B			; Knock 3 bytes off the counter
+			DEC	B
+			DEC	B
+			JR	STAR_EDITL		; And jump back to the loop
 
 ; *CAT / *.
 ;
 STAR_DOT:
 STAR_CAT:		PUSH	IY
 			MOSCALL	mos_dir
-			POP	IY
-			RET
-			
+STAR_MOSERR:		POP	IY			; Handle any MOS errors (also called by other STAR MOS commands)
+			OR	A			; If A is 0 there is no error
+			RET	Z			
+			JP	OSERROR			; Otherwise, jump to OSERROR in OSLOAD
+
 ; *CD path
 ;
-STAR_CD:		PUSH 	IY
-			CALL	SKIPSP
-			CALL	CRTONULL
-			MOSCALL	mos_cd
-			CALL	NULLTOCR	
-			POP	IY
-			RET
-			
+STAR_CD:		PUSH 	IY			
+			CALL	SKIPSP			; Skip to filename
+			LD	DE, ACCS		; Buffer for filename is ACCS (the string accumulator)
+			PUSH	DE			; Store buffer address
+			CALL	CSTR_FNAME		; Fetch the filename
+			POP	HL			; HL: Pointer to filename in ACCS
+			MOSCALL	mos_cd			; Call MOS
+			JR	STAR_MOSERR		; Handle any errors			
 ; *ERASE filename
 ;
 STAR_ERASE:		PUSH	IY
-			CALL	SKIPSP
-			CALL	CRTONULL
-			MOSCALL	mos_del
-			CALL	NULLTOCR
-			POP	IY
-			RET
+			CALL	SKIPSP			; Skip to filename
+			LD	DE, ACCS		; Buffer for filename is ACCS (the string accumulator)
+			PUSH	DE			; Store buffer address
+			CALL	CSTR_FNAME		; Fetch the filename
+			POP	HL			; HL: Pointer to filename in ACCS
+			MOSCALL	mos_del			; Call MOS
+			JR	STAR_MOSERR		; Handle any errors
 			
+; *REN filename1 filename2
+;
+STAR_REN:		PUSH	IY
+			CALL	SKIPSP			; Skip to first filename in args
+			LD	DE, ACCS		; Buffer for filenames is ACCS (the string accumulator)
+			CALL	CSTR_FNAME		; Fetch first filename
+			CALL	SKIPSP			; Skip to second filename in args
+			PUSH	DE			; Store the start address of the second filename in ACCS
+			CALL	CSTR_FNAME		; Store in string accumulator
+			POP	DE			; DE: Pointer of the second filename
+			LD	HL, ACCS		; HL: Pointer to the first filename
+			MOSCALL	mos_ren			; Call MOS
+			JR	STAR_MOSERR		; Handle any errors
+			
+; *MKDIR filename
+;
+STAR_MKDIR:		PUSH	IY
+			CALL	SKIPSP			; Skip to filename
+			LD	DE, ACCS		; Buffer for filename is ACCS (the string accumulator)
+			PUSH	DE			; Stack the buffer
+			CALL	CSTR_FNAME		; Convert the filename to a C string (0 terminated)
+			POP	HL			; Pop the buffer address
+			MOSCALL	mos_mkdir		; Call MOS
+			JR	STAR_MOSERR		; Handle any errors
+
 ; OSCLI FX n
 ;
-STAR_FX:		CALL	ASC_TO_NUMBER	; C: FX #
+STAR_FX:		CALL	ASC_TO_NUMBER		; C: FX #
 			LD	C, E
-			CALL	ASC_TO_NUMBER	; B: First parameter
+			CALL	ASC_TO_NUMBER		; B: First parameter
 			LD	B, E
-			CALL	ASC_TO_NUMBER	; E: Second parameter
-			LD	L, B 		; L: First parameter
-			LD	H, E 		; H: Second parameter
-			LD	A, C 		; A: FX #, and fall through to OSBYTE	
+			CALL	ASC_TO_NUMBER		; E: Second parameter
+			LD	L, B 			; L: First parameter
+			LD	H, E 			; H: Second parameter
+			LD	A, C 			; A: FX #, and fall through to OSBYTE	
 ;
 ; OSBYTE
 ;  A: FX #
 ;  L: First parameter
 ;  H: Second parameter
 ;
-OSBYTE:			CP	13H
-			JR	Z, OSBYTE_13
-			JP	HUH
+OSBYTE:			CP	13H			; We've only got one *FX command at the moment
+			JR	Z, OSBYTE_13		; *FX 13
+			JP	HUH			; Anything else trips an error
 
 ; OSBYTE 0x13 (FX 19): Wait 1/50th of a second
 ;
-OSBYTE_13:		HALT	
-			LD	L, 0
+OSBYTE_13:		HALT				; TODO: Fix this so it just waits for a vertical blank interrupt
+			LD	L, 0			; Returns 0
 			JP	COUNT0
 
 ;OSLOAD - Load an area of memory from a file.
@@ -355,12 +471,26 @@ OSBYTE_13:		HALT
 ;  Outputs: Carry reset indicates no room for file.
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSLOAD:			CALL	CRTONULL
-			MOSCALL	mos_load
-			PUSH	AF
-			CALL	NULLTOCR
-			POP	AF
-			RET
+OSLOAD:			PUSH	DE			; Stack the load address
+			LD	DE, ACCS		; Buffer address for filename
+			CALL	CSTR_FNAME		; Fetch filename from MOS into buffer
+			POP	DE			; Restore the load address
+			LD	HL, ACCS		; HL: Filename
+			MOSCALL	mos_load		; Call LOAD in MOS
+			RET	NC			; If load returns with carry reset - NO ROOM
+			OR	A			; If there is no error (A=0)
+			SCF				; Need to set carry indicating there was room
+			RET	Z			; Return
+;
+OSERROR:		PUSH	AF			; Handle the MOS error
+			LD	HL, ACCS		; Address of the buffer
+			LD	BC, 256			; Length of the buffer
+			LD	E, A			; The error code
+			MOSCALL	mos_getError		; Copy the error message into the buffer
+			POP	AF			
+			PUSH	HL			; Stack the address of the error (now in ACCS)		
+			ADD	A, 127			; Add 127 to the error code (MOS errors start at 128, and are trappable)
+			JP	EXTERR			; Trigger an external error
 
 ;OSSAVE - Save an area of memory to a file.
 ;   Inputs: HL addresses filename (term CR)
@@ -368,12 +498,15 @@ OSLOAD:			CALL	CRTONULL
 ;           BC = length of data to save (bytes)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSSAVE:			CALL	CRTONULL
-			MOSCALL	mos_save
-			PUSH	AF
-			CALL 	NULLTOCR
-			POP	AF
-			RET
+OSSAVE:			PUSH	DE			; Stack the save address
+			LD	DE, ACCS		; Buffer address for filename
+			CALL	CSTR_FNAME		; Fetch filename from MOS into buffer
+			POP	DE			; Restore the save address
+			LD	HL, ACCS		; HL: Filename
+			MOSCALL	mos_save		; Call SAVE in MOS
+			OR	A			; If there is no error (A=0)
+			RET	Z			; Just return
+			JR	OSERROR			; Trip an error
 			
 ;OSCALL - Intercept page &FF calls and provide an alternative address
 ;
@@ -508,142 +641,6 @@ PUTPTR:			RET
 ;
 GETEXT:			RET	
 	
-; SOUND channel,volume,pitch,duration
-; volume: 0 (off) to -15 (full volume)
-; pitch: 0 - 255
-; duration: -1 to 254 (duration in 20ths of a second, -1 = play forever)
-;
-SOUND:			CALL	EXPR_W2			; DE: Channel/Control, HL: Volume
-			LD	A, L 			;  A: Volume
-			PUSH	AF
-			PUSH	DE
-			CALL	COMMA
-			CALL	EXPR_W2			; DE: Pitch, HL: Duration
-			LD	D, E			;  D: Pitch
-			LD	E, L 			;  E: Duration
-			POP	HL 			; HL: Channel/Control
-			POP	AF
-			NEG
-			CP	16			; Check volume is in bounds
-			JP	NC, XEQ			; Out of bounds, do nothing
-;
-; Store	in VDU vars
-; 
-			LD	C, A			; Store Volume in C
-			LD	A, L
-			LD	(VDU_BUFFER+0), A	; Channel
-			XOR	A
-			LD	(VDU_BUFFER+1), A	; Waveform
-; 
-; Calculate the volume
-; 
-			LD	B, 6			; C already contains the volume
-			MLT	BC			; Multiply by 6 (0-15 scales to 0-90)
-			LD	A, C
-			LD	(VDU_BUFFER+2), A
-;
-; And the frequency
-;
-			LD	C, E			; Store duration in C
-			LD	H, 0			; Lookup the frequency
-			LD	L, D
-			LD	DE, SOUND_FREQ_LOOKUP
-			ADD	HL, HL
-			ADD	HL, DE
-			LD	A, (HL)
-			LD	(VDU_BUFFER+3), A
-			INC	HL
-			LD	A, (HL)
-			LD	(VDU_BUFFER+4), A
-;
-; And now the duration - multiply it by 50 to convert from 1/20ths of seconds to milliseconds
-;
-			LD	B, 50			; C contains the duration, so MLT by 50
-			MLT	BC
-			LD	(VDU_BUFFER+5), BC
-;
-			PUSH	IX			; Get the system vars in IX
-			MOSCALL	mos_sysvars		; Reset the semaphore
-SOUND0:			RES.LIL	3, (IX+sysvar_vpd_pflags)
-;
-			VDU	23			; Send the sound command
-			VDU	0
-			VDU	5
-			VDU	(VDU_BUFFER+0)		; 0: Channel
-			VDU	(VDU_BUFFER+1)		; 1: Waveform (0)
-			VDU	(VDU_BUFFER+2)		; 2: Volume (0-100)
-			VDU	(VDU_BUFFER+3)		; 3: Frequency L
-			VDU	(VDU_BUFFER+4)		; 4: Frequency H
-			VDU	(VDU_BUFFER+5)		; 5: Duration L
-			VDU	(VDU_BUFFER+6)		; 6: Duration H
-;
-; Wait for acknowledgement
-;
-$$:			BIT.LIL	3, (IX+sysvar_vpd_pflags)
-			JR	Z, $B			; Wait for the result
-			CALL	LTRAP			; Check for ESC
-			LD.LIL	A, (IX+syscar_audioSuccess)
-			AND	A			; Check if VDP has queued the note
-			JR	Z, SOUND0		; No, so loop back and send again
-;
-			POP	IX
-			JP	XEQ
-
-; Frequency Lookup Table
-; Set up to replicate the BBC Micro audio frequencies
-;
-; Split over 5 complete octaves, with 53 being middle C
-; * C4: 262hz
-; + A4: 440hz
-;
-;	2	3	4	5	6	7	8
-;
-; B	1	49	97	145	193	241	
-; A#	0	45	93	141	189	237	
-; A		41	89+	137	185	233	
-; G#		37	85	133	181	229	
-; G		33	81	129	177	225	
-; F#		29	77	125	173	221	
-; F		25	73	121	169	217	
-; E		21	69	117	165	213	
-; D#		17	65	113	161	209	
-; D		13	61	109	157	205	253
-; C#		9	57	105	153	201	249
-; C		5	53*	101	149	197	245
-;
-SOUND_FREQ_LOOKUP:	DW	 117,  118,  120,  122,  123,  131,  133,  135
-			DW	 137,  139,  141,  143,  145,  147,  149,  151
-			DW	 153,  156,  158,  160,  162,  165,  167,  170
-			DW	 172,  175,  177,  180,  182,  185,  188,  190
-			DW	 193,  196,  199,  202,  205,  208,  211,  214
-			DW	 217,  220,  223,  226,  230,  233,  236,  240
-			DW	 243,  247,  251,  254,  258,  262,  265,  269
-			DW	 273,  277,  281,  285,  289,  294,  298,  302
-			DW	 307,  311,  316,  320,  325,  330,  334,  339
-			DW	 344,  349,  354,  359,  365,  370,  375,  381
-			DW	 386,  392,  398,  403,  409,  415,  421,  427
-			DW	 434,  440,  446,  453,  459,  466,  473,  480
-			DW	 487,  494,  501,  508,  516,  523,  531,  539
-			DW	 546,  554,  562,  571,  579,  587,  596,  605
-			DW	 613,  622,  631,  641,  650,  659,  669,  679
-			DW	 689,  699,  709,  719,  729,  740,  751,  762
-			DW	 773,  784,  795,  807,  819,  831,  843,  855
-			DW	 867,  880,  893,  906,  919,  932,  946,  960
-			DW	 974,  988, 1002, 1017, 1032, 1047, 1062, 1078
-			DW	1093, 1109, 1125, 1142, 1158, 1175, 1192, 1210
-			DW	1227, 1245, 1263, 1282, 1300, 1319, 1338, 1358
-			DW	1378, 1398, 1418, 1439, 1459, 1481, 1502, 1524
-			DW	1546, 1569, 1592, 1615, 1638, 1662, 1686, 1711
-			DW	1736, 1761, 1786, 1812, 1839, 1866, 1893, 1920
-			DW	1948, 1976, 2005, 2034, 2064, 2093, 2123, 2154
-			DW	2186, 2217, 2250, 2282, 2316, 2349, 2383, 2418
-			DW	2453, 2489, 2525, 2562, 2599, 2637, 2675, 2714
-			DW	2754, 2794, 2834, 2876, 2918, 2960, 3003, 3047
-			DW	3091, 3136, 3182, 3228, 3275, 3322, 3371, 3420
-			DW	3470, 3520, 3571, 3623, 3676, 3729, 3784, 3839
-			DW	3894, 3951, 4009, 4067, 4126, 4186, 4247, 4309
-			DW	4371, 4435, 4499, 4565, 4631, 4699, 4767, 4836	
-
 ; Get two word values from EXPR in DE, HL
 ; IY: Pointer to expression string
 ; Returns:
