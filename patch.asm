@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	24/09/2022
+; Last Updated:	03/10/2022
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -12,6 +12,7 @@
 ; 19/08/2022:	Moved GETSCHR, POINT to agon_graphics.asm, optimised GETCSR, added SOUND
 ; 19/09/2022:	Added STAR_REN, improved filename parsing for star commands, moved SOUND to agon_sound.asm
 ; 24/09/2022:	Added STAR_MKDIR, STAR_EDIT; file errors for MOS commands LOAD, SAVE, CD, ERASE, REN, DIR
+; 03/10/2022:	Fixed OSBYTE_13 command
 			
 			.ASSUME	ADL = 0
 				
@@ -458,9 +459,14 @@ OSBYTE:			CP	13H			; We've only got one *FX command at the moment
 			JR	Z, OSBYTE_13		; *FX 13
 			JP	HUH			; Anything else trips an error
 
-; OSBYTE 0x13 (FX 19): Wait 1/50th of a second
+; OSBYTE 0x13 (FX 19): Wait for vertical blank interrupt
 ;
-OSBYTE_13:		HALT				; TODO: Fix this so it just waits for a vertical blank interrupt
+OSBYTE_13:		PUSH 	IX
+			MOSCALL	mos_sysvars		; Fetch pointer to system variables
+			LD.LIL	A, (IX + sysvar_time + 0)
+$$:			CP	(IX + sysvar_time + 0)	; Wait for the LSB of clock to tick
+			JR	Z, $B
+			POP	IX
 			LD	L, 0			; Returns 0
 			JP	COUNT0
 
