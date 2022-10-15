@@ -3,10 +3,11 @@
 ;		Initialisation Code
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	14/07/2022
+; Last Updated:	15/10/2022
 ;
 ; Modinfo:
 ; 14/07/2022:	Modified to run in MOS
+; 15/10/2022:	Added RST_08 and RST_10 handlers
 
 			SEGMENT __VECTORS
 		
@@ -36,8 +37,14 @@
 			JP		_START		; Jump to start
 			DS		1
 
-RST_08:			DS		8
-RST_10:			DS		8
+RST_08:			RST.LIS	08h			; API call
+			RET
+			DS 	5
+			
+RST_10:			RST.LIS 10h			; Output
+			RET
+			DS	5
+			
 RST_18:			DS		8
 RST_20:			DS		8
 RST_28:			DS		8
