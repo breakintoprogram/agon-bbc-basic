@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/10/2022
+; Last Updated:	11/10/2022
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -13,6 +13,7 @@
 ; 19/09/2022:	Added STAR_REN, improved filename parsing for star commands, moved SOUND to agon_sound.asm
 ; 24/09/2022:	Added STAR_MKDIR, STAR_EDIT; file errors for MOS commands LOAD, SAVE, CD, ERASE, REN, DIR
 ; 03/10/2022:	Fixed OSBYTE_13 command
+; 11/10/2022:	Fixed bug introduced in previous fix to OSBYTE_13, OSCLI now calls MOS
 			
 			.ASSUME	ADL = 0
 				
@@ -66,6 +67,7 @@
 			XREF	NULLTOCR
 			XREF	CRLF
 			XREF	CSTR_FNAME
+			XREF	CSTR_LINE
 			XREF	FINDL
 			XREF	OUT_
 			XREF	ERROR_
@@ -219,22 +221,22 @@ OSINIT:			XOR	A
 			RET	
 
 ;
-;OSCLI - Process an "operating system" command
+;OSCLI - Process a MOS command
 ;
 OSCLI: 			CALL    SKIPSP
 			CP      CR
 			RET     Z
 			CP      '|'
 			RET     Z
-			CP      '.'
-			JP      Z,STAR_DOT		; *.
+;			CP      '.'
+;			JP      Z,STAR_DOT		; *.
 			EX      DE,HL
 			LD      HL,COMDS
 OSCLI0:			LD      A,(DE)
 			CALL    UPPRC
 			CP      (HL)
 			JR      Z,OSCLI2
-			JR      C,HUH
+			JR      C,OSCLI6
 OSCLI1:			BIT     7,(HL)
 			INC     HL
 			JR      Z,OSCLI1
@@ -268,7 +270,17 @@ OSCLI5:			BIT     7,(HL)
 			PUSH    HL
 			EX      DE,HL
 			JP      SKIPSP
-
+;
+OSCLI6:			EX	DE, HL			; HL: Buffer for command
+			LD	DE, ACCS		; Buffer for command string is ACCS (the string accumulator)
+			PUSH	DE			; Store buffer address
+			CALL	CSTR_LINE		; Fetch the line
+			POP	HL			; HL: Pointer to command string in ACCS
+			PUSH	IY
+			MOSCALL	mos_oscli
+			POP	IY
+			RET
+	
 HUH:    		LD      A,254
         		CALL    EXTERR
         		DB    	'Bad command'
@@ -291,22 +303,12 @@ UPPRC:  		AND     7FH
 ;		
 COMDS:  		DB	'BY','E'+80h		; BYE
 			DW	STAR_BYE
-			DB	'CA','T'+80h		; CAT
-			DW	STAR_CAT
-			DB	'C', 'D'+80h		; CD
-			DW	STAR_CD
 			DB	'EDI','T'+80h		; EDIT
 			DW	STAR_EDIT
-			DB	'ERAS','E'+80h		; ERASE
-			DW	STAR_ERASE
 			DB	'F','X'+80h		; FX
 			DW	STAR_FX
-			DB	'MKDI','R'+80h		; MKDIR
-			DW	STAR_MKDIR		
-			DB	'RE','N'+80h		; REN
-			DW	STAR_REN
 			DB	FFh
-			
+						
 ; *BYE
 ;
 STAR_BYE:		RST.LIS	00h			; Reset MOS
@@ -383,62 +385,6 @@ STAR_EDIT2:		PUSH    HL			; LD IY,HL
 			DEC	B
 			JR	STAR_EDITL		; And jump back to the loop
 
-; *CAT / *.
-;
-STAR_DOT:
-STAR_CAT:		PUSH	IY
-			MOSCALL	mos_dir
-STAR_MOSERR:		POP	IY			; Handle any MOS errors (also called by other STAR MOS commands)
-			OR	A			; If A is 0 there is no error
-			RET	Z			
-			JP	OSERROR			; Otherwise, jump to OSERROR in OSLOAD
-
-; *CD path
-;
-STAR_CD:		PUSH 	IY			
-			CALL	SKIPSP			; Skip to filename
-			LD	DE, ACCS		; Buffer for filename is ACCS (the string accumulator)
-			PUSH	DE			; Store buffer address
-			CALL	CSTR_FNAME		; Fetch the filename
-			POP	HL			; HL: Pointer to filename in ACCS
-			MOSCALL	mos_cd			; Call MOS
-			JR	STAR_MOSERR		; Handle any errors			
-; *ERASE filename
-;
-STAR_ERASE:		PUSH	IY
-			CALL	SKIPSP			; Skip to filename
-			LD	DE, ACCS		; Buffer for filename is ACCS (the string accumulator)
-			PUSH	DE			; Store buffer address
-			CALL	CSTR_FNAME		; Fetch the filename
-			POP	HL			; HL: Pointer to filename in ACCS
-			MOSCALL	mos_del			; Call MOS
-			JR	STAR_MOSERR		; Handle any errors
-			
-; *REN filename1 filename2
-;
-STAR_REN:		PUSH	IY
-			CALL	SKIPSP			; Skip to first filename in args
-			LD	DE, ACCS		; Buffer for filenames is ACCS (the string accumulator)
-			CALL	CSTR_FNAME		; Fetch first filename
-			CALL	SKIPSP			; Skip to second filename in args
-			PUSH	DE			; Store the start address of the second filename in ACCS
-			CALL	CSTR_FNAME		; Store in string accumulator
-			POP	DE			; DE: Pointer of the second filename
-			LD	HL, ACCS		; HL: Pointer to the first filename
-			MOSCALL	mos_ren			; Call MOS
-			JR	STAR_MOSERR		; Handle any errors
-			
-; *MKDIR filename
-;
-STAR_MKDIR:		PUSH	IY
-			CALL	SKIPSP			; Skip to filename
-			LD	DE, ACCS		; Buffer for filename is ACCS (the string accumulator)
-			PUSH	DE			; Stack the buffer
-			CALL	CSTR_FNAME		; Convert the filename to a C string (0 terminated)
-			POP	HL			; Pop the buffer address
-			MOSCALL	mos_mkdir		; Call MOS
-			JR	STAR_MOSERR		; Handle any errors
-
 ; OSCLI FX n
 ;
 STAR_FX:		CALL	ASC_TO_NUMBER		; C: FX #
@@ -464,7 +410,7 @@ OSBYTE:			CP	13H			; We've only got one *FX command at the moment
 OSBYTE_13:		PUSH 	IX
 			MOSCALL	mos_sysvars		; Fetch pointer to system variables
 			LD.LIL	A, (IX + sysvar_time + 0)
-$$:			CP	(IX + sysvar_time + 0)	; Wait for the LSB of clock to tick
+$$:			CP.LIL 	A, (IX + sysvar_time + 0)
 			JR	Z, $B
 			POP	IX
 			LD	L, 0			; Returns 0
