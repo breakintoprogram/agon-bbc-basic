@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	11/10/2022
+; Last Updated:	20/10/2022
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -14,6 +14,7 @@
 ; 24/09/2022:	Added STAR_MKDIR, STAR_EDIT; file errors for MOS commands LOAD, SAVE, CD, ERASE, REN, DIR
 ; 03/10/2022:	Fixed OSBYTE_13 command
 ; 11/10/2022:	Fixed bug introduced in previous fix to OSBYTE_13, OSCLI now calls MOS
+; 20/10/2022:	ESC in GET now works, tidied up error handling in OSCLI
 			
 			.ASSUME	ADL = 0
 				
@@ -75,19 +76,6 @@
 			XREF	BUF_DETOKEN
 			XREF	BUF_PBCDL
 			XREF	ONEDIT
-
-; OSWRCH: Write a character out to the ESP32 VDU handler via the MOS
-; A: Character to write
-;
-OSWRCH:			RST.LIS	10h			; This is at odds with the manual - assembles to RST.L
-			RET
-
-; OSRDCH: Read a character in from the ESP32 keyboard handler
-;
-OSRDCH:			MOSCALL	mos_getkey
-			OR	A 		
-			JR	Z, OSRDCH		; Loop until key is pressed
-			RET
 
 ; OSLINE: Invoke the line editor
 ;
@@ -163,7 +151,23 @@ $$:			BIT.LIL	0, (IX+sysvar_vpd_pflags)
 ;
 PROMPT: 		LD	A,'>'
 			JP	OSWRCH
+			
+; OSWRCH: Write a character out to the ESP32 VDU handler via the MOS
+; A: Character to write
+;
+OSWRCH:			RST.LIS	10h			; This is at odds with the manual - assembles to RST.L
+			RET
 
+; OSRDCH: Read a character in from the ESP32 keyboard handler
+; This is only called in GETS (eval.asm)
+;
+OSRDCH:			MOSCALL	mos_getkey		; Read keyboard
+			OR	A 		
+			JR	Z, OSRDCH		; Loop until key is pressed
+			CP	1BH			; Check for ESC
+			JR	Z, ESCSET		; Yes, so set the ESC flag
+			RET
+			
 ;OSKEY - Read key with time-limit, test for ESCape.
 ;Main function is carried out in user patch.
 ;   Inputs: HL = time limit (centiseconds)
@@ -184,26 +188,36 @@ $$:			CP	1BH			; If we are not pressing ESC,
 			SCF 				; then flag we've got a character
 			RET	NZ		
 ;
+; ESCSET
+; Set the escape flag (bit 7 of FLAGS = 1) if escape is enabled (bit 6 of FLAGS = 0)
+;
 ESCSET: 		PUSH    HL
-        		LD      HL,FLAGS
-        		BIT     6,(HL)			; ESC DISABLED?
-        		JR      NZ,ESCDIS
-        		SET     7,(HL)			; SET ESCAPE FLAG
+        		LD      HL,FLAGS		; Pointer to FLAGS
+        		BIT     6,(HL)			; If bit 6 is set, then
+        		JR      NZ,ESCDIS		; escape is disabled, so skip
+        		SET     7,(HL)			; Set bit 7, the escape flag
 ESCDIS: 		POP     HL
         		RET	
 ;
-ESCTEST:		MOSCALL	mos_getkey
-			CP	1BH			; ESC	
-			JR	Z,ESCSET
+; ESCTEST
+; Test for ESC key
+;
+ESCTEST:		MOSCALL	mos_getkey		; Read keyboard
+			CP	1BH			; If ESC pressed then
+			JR	Z,ESCSET		; jump to the escape set routine
 			RET
 ;
-TRAP:			CALL	ESCTEST
-LTRAP:			LD	A,(FLAGS)
-			OR	A
-			RET	P
-			LD	HL,FLAGS 
-			RES	7,(HL)
-			JP	ESCAPE
+; TRAP
+; This is called whenever BASIC needs to check for ESC
+;
+TRAP:			CALL	ESCTEST			; Read keyboard, test for ESC, set FLAGS
+;
+LTRAP:			LD	A,(FLAGS)		; Get FLAGS
+			OR	A			; This checks for bit 7; if it is not set then the result will
+			RET	P			; be positive (bit 7 is the sign bit in Z80), so return
+			LD	HL,FLAGS 		; Escape is pressed at this point, so
+			RES	7,(HL)			; Clear the escape pressed flag and
+			JP	ESCAPE			; Jump to the ESCAPE error routine in exec.asm
 
 ;OSINIT - Initialise RAM mapping etc.
 ;If BASIC is entered by BBCBASIC FILENAME then file
@@ -228,8 +242,6 @@ OSCLI: 			CALL    SKIPSP
 			RET     Z
 			CP      '|'
 			RET     Z
-;			CP      '.'
-;			JP      Z,STAR_DOT		; *.
 			EX      DE,HL
 			LD      HL,COMDS
 OSCLI0:			LD      A,(DE)
@@ -277,16 +289,18 @@ OSCLI6:			EX	DE, HL			; HL: Buffer for command
 			CALL	CSTR_LINE		; Fetch the line
 			POP	HL			; HL: Pointer to command string in ACCS
 			PUSH	IY
-			MOSCALL	mos_oscli
+			MOSCALL	mos_oscli		; Returns OSCLI error in A
 			POP	IY
-			RET
-	
-HUH:    		LD      A,254
+			OR	A			; 0 means MOS returned OK
+			RET	Z			; So don't do anything
+			JP 	OSERROR			; Otherwise it's a MOS error
+
+HUH:    		LD      A,254			; Bad command error
         		CALL    EXTERR
-        		DB    	'Bad command'
+        		DB    	"Bad command"
         		DEFB    0			
 
-SKIPSP:			LD      A,(HL)
+SKIPSP:			LD      A,(HL)			
         		CP      ' '
         		RET     NZ
         		INC     HL
@@ -501,6 +515,8 @@ OSCALL_TABLE:		DB 	D4h
 			DW 	OSWRCH
 			DB	F4h
 			DW 	OSBYTE
+			DB	F7h
+			DW	OSCLI
 			DB	FFh	
 
 ; OSOPEN
