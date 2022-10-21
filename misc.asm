@@ -2,11 +2,12 @@
 ; Title:	BBC Basic for AGON - Miscellaneous helper functions
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	28/09/2022
+; Last Updated:	13/10/2022
 ;
 ; Modinfo:
 ; 26/07/2022:	Added NULLTOCR and CRTONULL
 ; 28/09/2022:	Added CSTR_FNAME, BUF_DETOKEN, BUF_PBCDL
+; 13/10/2022:	Added CSTR_LINE
 
 			INCLUDE	"equs.inc"
 			INCLUDE	"macros.inc"
@@ -20,6 +21,7 @@
 			XDEF	NULLTOCR
 			XDEF	CRTONULL
 			XDEF	CSTR_FNAME
+			XDEF	CSTR_LINE
 			XDEF	BUF_DETOKEN
 			XDEF	BUF_PBCDL
 				
@@ -157,6 +159,22 @@ CSTR_FNAME:		LD	A, (HL)			; Get source
 			INC	HL			; Increment
 			INC	DE			
 			JR	CSTR_FNAME		; And loop
+$$:			XOR	A			; Zero terminate the target string
+			LD	(DE), A
+			INC	DE			; And point to next free address
+			RET
+			
+; Copy a CR terminated line to DE and zero terminate it
+; HL: Source
+; DE: Destination (ACCS)
+;
+CSTR_LINE:		LD	A, (HL)			; Get source
+			CP	CR			; Is it CR
+			JR	Z, $F
+			LD	(DE), A			; No, so store
+			INC	HL			; Increment
+			INC	DE			
+			JR	CSTR_LINE		; And loop
 $$:			XOR	A			; Zero terminate the target string
 			LD	(DE), A
 			INC	DE			; And point to next free address
