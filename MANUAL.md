@@ -53,9 +53,44 @@ These can be tweaked by modifying the function set_mode in the VDP code.
 - `MODE 1`: 512 x 384 @ 60hz (VGA)
 - `MODE 2`: 320 x 200 @ 75Hz (VGA)
 
-### GCOL mode, r,g,b
+### COLOUR n
+### COLOUR r,g,b
 
-Set the graphics colour to the specified rgb colour. Each component is a number between 0 and 255
+If one parameter is passed, it will pick one of 8 primary colours:
+
+- 0: Black
+- 1: Red
+- 2: Green
+- 3: Yellow
+- 4: Blue
+- 5: Magenta
+- 6: Cyan
+- 7: White
+
+If three parameters are passed, then the colour will be set to the specified rgb colour where each component is an integer between 0 and 255.
+
+### GCOL mode,n
+### GCOL mode,r,g,b
+
+As COLOUR. Mode is currently ignored
+
+### POINT(x,y)
+
+This returns the rgb value of the pixel as a 24-bit integer
+
+### PLOT mode,x,y
+
+Plot supports the following operations:
+
+- 4: Move
+- 5: Line
+- 80: Filled Triangle
+- 144: Circle with radius specified either by x or y
+- 148: Circle passing through point x,y
+
+### GET$(x,y)
+
+Returns the ASCII character at position x,y
 
 ### VDU
 
