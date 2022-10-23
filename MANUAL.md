@@ -38,7 +38,7 @@ In addition, any of the MOS commands can be called by prefixing them with a *
 * `*JMP addr`: Jump to the specified address in memory
 * `*SET option value`: Set a system option
 
-See the MOS documentation for more details
+See the [MOS documentation](https://github.com/breakintoprogram/agon-mos/blob/main/README.md) for more details
 
 ## BASIC
 
@@ -69,7 +69,7 @@ The VDU command is a work-in-progress with a handful of mappings implemented:
 - `VDU 13`: Carriage return
 - `VDU 16`: CLG
 - `VDU 18, mode, r, g, b`: GCOL mode, r, g, b
-- `VDU 23, n`: VDP commands - see the VDP documentation for more details
+- `VDU 23, n`: VDP commands
 - `VDU 22,n`: Mode n
 - `VDU 25,mode, x; y;`: PLOT mode,x,y
 - `VDU 29, x; y;`: Set graphics origin to x,y
@@ -80,5 +80,6 @@ The VDU command is a work-in-progress with a handful of mappings implemented:
 Examples:
 
 `VDU 25,64,128;88;` Plot point in middle of screen
-
 `VDU 22,1` Change to Mode 1
+
+See the [VDP documentation](https://github.com/breakintoprogram/agon-vdp/blob/main/MANUAL.md) for more details
