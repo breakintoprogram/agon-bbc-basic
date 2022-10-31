@@ -244,7 +244,7 @@ $$:			LD      A, R				; Use the R register to seed the random number generator
 ;			
 XEQ0:			CALL    NEWLIN
 XEQ:			LD      (ERRLIN),IY     		; Error pointer
-			CALL    TRAP           			; Check keyboard
+			CALL    TRAP           			; Check for Escape
 XEQ1:			CALL    NXT
 			INC     IY
 			CP      ':'             		; Seperator

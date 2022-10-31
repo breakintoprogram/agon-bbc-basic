@@ -94,6 +94,9 @@ INCREM:			DS		1               ; AUTO INCREMENT
 ; Extra Agon-implementation specific system variables
 ;
 FLAGS:			DS		1		; Flags: B7=ESC PRESSED, B6=ESC DISABLED, B4=COPY PRESSED
+; NOTE: FLAGS is normally USER-1, accessible as ?(PAGE-1).
+; NOTE: ACS string buffer is normally USER-768, accessible as $(PAGE-768)
+;
 ;TIME:			DS		4
 ;KEY_CODE:		DS		1
 ;VDU_BUFFER:		DS		8		; 8 bytes of temporary storage for the VDU buffer

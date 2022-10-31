@@ -50,7 +50,7 @@ RST_20:			DS		8
 RST_28:			DS		8
 RST_30:			DS		8	
 ;	
-; The NMI interrupt vector (not currently used by AGON)
+; The IRQ interrupt vector (not currently used by AGON)
 ;
 RST_38:			EI
 			RETI
@@ -73,4 +73,6 @@ $$:			LD	(HL), E
 			JR	NZ, $B
 			RET				
 
+
+; The NMI vector at 0066h also not currently used by AGON
 

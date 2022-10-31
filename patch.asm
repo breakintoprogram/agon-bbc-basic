@@ -121,6 +121,8 @@ GETIME:			PUSH 	IX
 			RET
 
 ; PUTCSR: move to cursor to x=DE, y=HL
+; TAB(x,y) Must be identical to VDU 31,x,y
+; See https://mdfs.net/Software/BBCBasic/Porting/VDUSpecs
 ;
 PUTCSR:			LD	A, 1Fh			; TAB
 			RST.LIS	10h
@@ -175,16 +177,21 @@ OSRDCH:			MOSCALL	mos_getkey		; Read keyboard
 ;           If carry set A = character
 ; Destroys: A,H,L,F
 ;
-OSKEY: 			MOSCALL	mos_getkey		; Read keyboard
+OSKEY:			BIT	7,H
+			JR	NZ,OSKEY1
+			LD	HL,0			; Negative INKEY not supported, return 0
+			AND	A
+			RET
+OSKEY1 			MOSCALL	mos_getkey		; Read keyboard
 			OR	A			; If we have a character
 			JR	NZ, $F			; Then process it
 			LD	A,H			; Check if HL is 0 (this is passed by INKEY() function
-			OR	L
-			RET	Z 			; If it is then ret
+			OR	L			; Also sets CLC for timeout
+			RET	Z 			; If it is then return
 			HALT				; Bit of a bodge so this is timed in ms
 			DEC	HL 			; Decrement the counter and 
 			JR	OSKEY 			; loop
-$$:			CP	1BH			; If we are not pressing ESC, 
+$$:			CP	1BH			; If we haven't pressed ESC, 
 			SCF 				; then flag we've got a character
 			RET	NZ		
 ;
@@ -209,6 +216,8 @@ ESCTEST:		MOSCALL	mos_getkey		; Read keyboard
 ;
 ; TRAP
 ; This is called whenever BASIC needs to check for ESC
+; NOTE This is called between every statement, so polling manually can slow the system quite a bit
+; Could use a ticker to only actually test every X calls.
 ;
 TRAP:			CALL	ESCTEST			; Read keyboard, test for ESC, set FLAGS
 ;
@@ -224,10 +233,11 @@ LTRAP:			LD	A,(FLAGS)		; Get FLAGS
 ;FILENAME.BBC is automatically CHAINed.
 ;   Outputs: DE = initial value of HIMEM (top of RAM)
 ;            HL = initial value of PAGE (user program)
-;            Z-flag reset indicates AUTO-RUN.
+;            NZ = filename passed for AUTO-RUN
+;            Z  = no filename passed
 ;  Destroys: A,D,E,H,L,F
 ;
-OSINIT:			XOR	A
+OSINIT:			XOR	A			; Z=no filename
 			LD	(FLAGS), A		; Clear flags and set F = Z
 			LD 	HL, USER
 			LD	DE, RAM_Top
@@ -411,13 +421,17 @@ STAR_FX:		CALL	ASC_TO_NUMBER		; C: FX #
 			LD	A, C 			; A: FX #, and fall through to OSBYTE	
 ;
 ; OSBYTE
-;  A: FX #
+;  A: OSBYTE/FX number
 ;  L: First parameter
 ;  H: Second parameter
 ;
-OSBYTE:			CP	13H			; We've only got one *FX command at the moment
-			JR	Z, OSBYTE_13		; *FX 13
-			JP	HUH			; Anything else trips an error
+OSBYTE:			CP	13H			; Check for calls explicitly
+			JR	Z, OSBYTE_13		; OSBYTE 19/*FX 19
+			CP	00H
+			JR	Z, OSBYTE_00		; OSBYTE 0
+			RET				; Anything else, just exit
+: NOTE *FX may generate an error for unsupported calls, but OSBYTE must *NOT*.
+; Constructs such as A%=25:CALL &FFF4 must *NOT* generate an error.
 
 ; OSBYTE 0x13 (FX 19): Wait for vertical blank interrupt
 ;
@@ -429,6 +443,14 @@ $$:			CP.LIL 	A, (IX + sysvar_time + 0)
 			POP	IX
 			LD	L, 0			; Returns 0
 			JP	COUNT0
+
+OSBYTE_00:		LD	L, 24			; CP/M-like system, must return %00011xxx
+			JP	COUNT0			; See https://beebwiki.mdfs.net/OSBYTE_%2600
+; Programs must be able to do:
+;  A%=0:X%=1:os%=((USR&FFF4)AND&FF00)DIV256
+;  d$=".":s$="/":IF(os%AND-24):d$="/":s$=".":IF(os%AND-32):d$="\"
+;  filename$=name$+s$+ext$
+
 
 ;OSLOAD - Load an area of memory from a file.
 ;   Inputs: HL addresses filename (CR terminated)

@@ -158,21 +158,21 @@ PURGE:			LD      (HL),A          	; Clear scratchpad
 			LD      (LISTON),A		
 			LD      HL,NOTICE
 			LD      (ERRTXT),HL
-			CALL    OSINIT			; Call the machine specific OS initialisation routines
+			CALL    OSINIT			; Call the machine-specific OS initialisation routines, NZ=filename passed
 			LD      (HIMEM),DE		; This returns HIMEM (ramtop) in DE - store in the HIMEM sysvar
 			LD      (PAGE_),HL		; And PAGE in HL (where BASIC program storage starts) - store in PAGE sysvar
-			CALL    NEWIT			; From what I can determine, NEWIT always returns with Z flag set
-			JP      NZ,CHAIN0       	; So this auto-run will never run
+			CALL    NEWIT			; NEWIT always returns with Z flag preserved
+			JP      NZ,CHAIN0       	; NZ set from OSINIT, auto-run passed filename
 			CALL    TELL			; Output the welcome message
 			DB    	"BBC BASIC (Z80) Version 3.00\n\r"
 NOTICE:			DB    	"(C) Copyright R.T.Russell 1987\n\r"
 			DB	"\n\r", 0
 ;			
-WARM:			DB 	F6H			; Opcode for OR? Maybe to CCF (the following SCF will be the operand)
+WARM:			DB 	F6H			; Opcode for OR, to do CLC by skipping SCF
 ;
 ; This is the main entry point for BASIC
 ;
-CLOOP:			SCF				; See above - not sure why this is here!
+CLOOP:			SCF				; SCF to indicate COLD entry
 			LD      SP,(HIMEM)
 			CALL    PROMPT          	; Prompt user
 			LD      HL,LISTON		; Pointer to the LISTO/OPT sysvar 
@@ -600,7 +600,7 @@ WARMNC:			JP      NC,WARM			; If exceeded the terminating line number then jump 
 ;
 ; Check if "UNLISTABLE":
 ;
-			LD      A,D			; TODO: What is "UNLISTABLE?"
+			LD      A,D			; Line number = 0, don't list the line
 			OR      E
 			JP      Z,CLOOP
 ;
@@ -1021,6 +1021,7 @@ SETOP2:			INC     HL             		; Skip the 3 byte end of program marker (&00,
 ;
 ;NEWIT - NEW PROGRAM THEN CLEAR
 ;   Destroys: H,L
+;   MUST preserve Z/NZ for autorun
 ;
 ;CLEAR - CLEAR ALL DYNAMIC VARIABLES INCLUDING
 ; FUNCTION AND PROCEDURE POINTERS.

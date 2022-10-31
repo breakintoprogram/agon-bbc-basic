@@ -58,7 +58,7 @@ MODE:			CALL    EXPRI
 			EXX
 			VDU	16H
 			VDU	L
-			CALL	CLRSCN				
+			CALL	CLRSCN			; VDU 22,L should itself do CLRSCN
 			JP	XEQ
 			
 ; GET(x,y): Get the ASCII code of a character on screen
@@ -135,6 +135,12 @@ $$:			BIT.LIL	2, (IX+sysvar_vpd_pflags)
 ; COLOUR colour
 ; COLOUR mode,R,G,B
 ;
+; This looks wrong
+; COLOUR n must be identical to VDU 17,n
+; COLOUR n,m must be identical to VDU 19,n,m,0,0,0
+; COLOUR n,r,g,b must be identical to VDU 19,n,16,r,g,b
+; See https://mdfs.net/Software/BBCBasic/Porting/VDUSpecs
+;
 COLOUR:			CALL	EXPRI			; The colour / mode
 			EXX
 			LD	A, L 
@@ -192,6 +198,12 @@ COLOUR_1:		CALL	COMMA
 							
 ; GCOL mode,colour
 ; GCOL mode,R,G,B
+;
+; This looks wrong
+; GCOL n must be identical to VDU 18,0,n
+; GCOL n,m must be identical to VDU 18,n,m
+; GCOL n,r,g,b must be identical to VDU 19,n,16,r,g,b
+; See https://mdfs.net/Software/BBCBasic/Porting/VDUSpecs
 ;
 GCOL:			CALL	EXPRI			; Parse MODE
 			EXX
@@ -254,6 +266,9 @@ COLOUR_LOOKUP:		DB	00h,00h,00h		; Black
 			DB	FFh,FFh,FFh		; White			
 
 ; PLOT mode,x,y
+; PLOT x,y must be identical to VDU 25,69,x;y;
+; PLOT n,x,y must be identical to VDU 25,n,x;y;
+; See https://mdfs.net/Software/BBCBasic/Porting/VDUSpecs
 ;
 PLOT:			CALL	EXPRI		; Parse mode
 			EXX					
@@ -270,6 +285,8 @@ PLOT_1:			VDU	19H		; VDU code for PLOT
 			JP	XEQ
 
 ; MOVE x,y
+; MOVE x,y must be identical to VDU 25,4,x;y
+; See https://mdfs.net/Software/BBCBasic/Porting/VDUSpecs
 ;
 MOVE:			CALL	EXPR_W2		; Parse X and Y
 			LD	C, 04H		; Plot mode 04H (Move)
@@ -277,6 +294,9 @@ MOVE:			CALL	EXPR_W2		; Parse X and Y
 
 ; DRAW x1,y1
 ; DRAW x1,y1,x2,y2
+; DRAW x,y must be identical to VDU 25,5,x;y;
+; DRAW x1,y1 TO x2,y2 must be identical to VDU 4,x1;y1; 25,5,x2;y2;
+; See https://mdfs.net/Software/BBCBasic/Porting/VDUSpecs
 ;
 DRAW:			CALL	EXPR_W2		; Get X1 and Y1
 			CALL	NXT		; Are there any more parameters?

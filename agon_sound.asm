@@ -47,7 +47,14 @@ SOUND:			CALL	EXPR_W2			; DE: Channel/Control, HL: Volume
 ; Store	in VDU vars
 ; 
 			LD	C, A			; Store Volume in C
-			LD	A, L
+
+			LD	A, H			; Get channel high byte
+			CP	32
+			JP	NC, XEQ			; Standard channels are &0xxx to &1xxx
+							; This check should be done by MOS, but
+							; this code only passes ChannelLow to MOS
+
+			LD	A, L			; Get channel low byte to A
 			LD	(VDU_BUFFER+0), A	; Channel
 			XOR	A
 			LD	(VDU_BUFFER+1), A	; Waveform

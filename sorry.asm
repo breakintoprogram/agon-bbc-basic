@@ -27,3 +27,5 @@ PUTIMS:
 			CALL    EXTERR
 			DEFB    "Sorry"
 			DEFB    0
+
+; Should really just return silently
