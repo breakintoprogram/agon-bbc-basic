@@ -20,6 +20,9 @@ To create the bbcbasic.bin executable
 ### Creating the SD Card Image
 
 1. Format the SD card FAT32. Note that cards larger than 32GB may not automatically format FAT32
-2. Copy the folders examples, tests and resources to the SD card 
-3. Copy bbcbasic.bin to the root folder of the card
+2. Copy bbcbasic.bin to the root folder of the card
+3. Copy the following folders from this project to the root of the card:
+	- `examples`: Original example files by R.T.Russell
+	- `tests`: My example files (see [here](https://github.com/breakintoprogram/agon-bbc-basic/blob/main/tests/README.md) for more details)
+	- `resources`: Various resource files used by the sample programs
 4. See the [MOS instructions for creating an autoexec.txt file](https://github.com/breakintoprogram/agon-mos#the-autoexectxt-file) for launching BBC BASIC automatically on boot
