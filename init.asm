@@ -3,11 +3,12 @@
 ;		Initialisation Code
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	15/10/2022
+; Last Updated:	22/11/2022
 ;
 ; Modinfo:
 ; 14/07/2022:	Modified to run in MOS
 ; 15/10/2022:	Added RST_08 and RST_10 handlers
+; 22/11/2022:	Added MOS header block
 
 			SEGMENT __VECTORS
 		
@@ -55,7 +56,15 @@ RST_30:			DS		8
 RST_38:			EI
 			RETI
 ;
-; This where the fun starts
+; The header stuff is from byte 64 onwards
+;
+			ALIGN		64
+			
+			DB		"MOS"		; Flag for MOS - to confirm this is a valid MOS command
+			DB		00h		; MOS header version 0
+			DB		00h		; Flag for run mode (0: Z80, 1: ADL)
+;
+; And the code follows on immediately after the header
 ;
 _START:			EI				; Enable the MOS interrupts
 			JP	COLD			; Start BBC Basic for Z80
