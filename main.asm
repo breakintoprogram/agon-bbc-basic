@@ -4,19 +4,22 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	28/09/2022
+; Last Updated:	12/01/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
 ; 01/03/1987:	Version 3.0
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
 ; 28/09/2022:	Tidied up KEYWDS and ERRWDS, Added KEYWDS and KEYWDL to XDEFs, entry point ONEDIT for *EDIT
+; 12/01/2023:	Added MOS C-style parameter processing routines and autoload functionality
 
 			.ASSUME	ADL = 0				
 
 			INCLUDE	"equs.inc"
 
 			SEGMENT CODE
+			
+			XDEF	_main
 			
 			XDEF	COLD
 			XDEF	WARM
@@ -129,21 +132,38 @@ TOKLO:			EQU     8FH
 TOKHI:			EQU     93H
 OFFSET:			EQU     CFH-TOKLO
 
-;START:			JP      COLD
-;			JP      WARM
-;			JP      ESCAPE
-;			JP      EXTERR
-;			JP      TELL
-;			JP      TEXT
-;			JP      SETTOP
-;			JP      CLEAR
-;			JP      RUN0
-;			JP      OSCLI
-;			JP      OSBGET
-;			JP      OSBPUT
-;			JP      OSSTAT
-;			JP      OSSHUT
+; The main routine
+; IXU: argv - pointer to array of parameters
+;   C: argc - number of parameters
+; Returns:
+;  HL: Error code, or 0 if OK
+;
+TESTFILENAME:		DB	"tests/cube",CR		; TODO: Test code
 
+_main:			LD	HL, ACCS		; Clear the ACCS
+			LD	(HL), 0
+			LD	A, C			
+			CP	2
+			JR	Z, AUTOLOAD		; 2 parameters = autoload
+			JR	C, COLD			; 1 parameter = normal start
+			CALL	TELL
+			DB	"BBC BASIC\n\r"
+			DB	"Usage:\n\r"
+			DB	"RUN address <filename>\n\r", 0
+			LD	HL, 0			; The error code
+			RET
+;							
+AUTOLOAD:		LD.LIL	HL, (IX+3)		; HLU: Address of filename
+			LD	DE, ACCS		;  DE: Destination address
+$$:			LD.LIL	A, (HL)			; Fetch the filename byte
+			LD	(DE), A			; 
+			INC.LIL	HL			; Increase the source pointer
+			INC	E			; We only need to increase E as ACCS is on a page boundary
+			JR	NZ, $B			; Loop until we hit a 0 byte
+			DEC	E
+			LD	A, CR
+			LD	(DE), A			; Replace the 0 byte with a CR for BBC BASIC
+;
 COLD:			LD      HL,STAVAR       	; Cold start
 			LD      SP,HL
 			LD      (HL),10
@@ -162,7 +182,9 @@ PURGE:			LD      (HL),A          	; Clear scratchpad
 			LD      (HIMEM),DE		; This returns HIMEM (ramtop) in DE - store in the HIMEM sysvar
 			LD      (PAGE_),HL		; And PAGE in HL (where BASIC program storage starts) - store in PAGE sysvar
 			CALL    NEWIT			; From what I can determine, NEWIT always returns with Z flag set
-			JP      NZ,CHAIN0       	; So this auto-run will never run
+			LD	A,(ACCS)		; Check if there is a filename in ACCS
+			OR	A
+			JP	NZ,CHAIN0		; Yes, so load and run
 			CALL    TELL			; Output the welcome message
 			DB    	"BBC BASIC (Z80) Version 3.00\n\r"
 NOTICE:			DB    	"(C) Copyright R.T.Russell 1987\n\r"
