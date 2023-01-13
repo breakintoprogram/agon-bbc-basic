@@ -1,5 +1,21 @@
 # manual
 
+## Copying to the SD card
+
+Copy the bbcbasic.bin file to the root folder of the SD card and launch using:
+```
+LOAD bbcbasic
+RUN
+```
+If you want to launch a BBC BASIC program immediately after running, you can specify a path
+```
+LOAD bbcbasic
+RUN &40000 tests/cube.bbc
+```
+Note that you have to pass the load address (default is &40000) to the run as subsequent parameters will be passed to the executable.
+
+## BBC BASIC for Z80 (Agon)
+
 In addition to the core BBC Basic for Z80 core language (details of which [can be found here](bbcbasic.txt)), BBC Basic for Agon adds the following functionality:
 
 ## Editor
@@ -25,6 +41,10 @@ Pull a line into the editor for editing.
 
 Execute an OSBYTE command.
 
+### *VERSION
+
+Display the current version of BBC BASIC
+
 In addition, any of the MOS commands can be called by prefixing them with a *
 
 * `*CAT`: Directory listing of the current directory. Aliases include `DIR` and `.`
@@ -43,6 +63,11 @@ See the [MOS documentation](https://github.com/breakintoprogram/agon-mos/blob/ma
 ## BASIC
 
 The following statements differ from the BBC Basic standard:
+
+### LOAD
+### SAVE
+
+If a file extension is omitted, ".BBC" is assumed. The file is saved as it is stored in memory, in BBC BASIC for Z80 tokenised format. This differs slightly from the Acorn format.
 
 ### MODE n
 

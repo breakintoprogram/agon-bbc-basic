@@ -210,13 +210,6 @@ COPY LORAM RAM</option>
 
 <!-- breakpoint information -->
 <breakpoints>
-<breakpoint temporary="false" enabled="false" >
-<line-number>0</line-number>
-<pathname></pathname>
-<address>275654</address>
-<command></command>
-<preserve-type>1</preserve-type>
-</breakpoint>
 </breakpoints>
 
 </project>
