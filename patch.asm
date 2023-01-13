@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	20/10/2022
+; Last Updated:	11/01/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -15,6 +15,7 @@
 ; 03/10/2022:	Fixed OSBYTE_13 command
 ; 11/10/2022:	Fixed bug introduced in previous fix to OSBYTE_13, OSCLI now calls MOS
 ; 20/10/2022:	ESC in GET now works, tidied up error handling in OSCLI
+; 11/01/2023:	Added default .BBC extension to OSLOAD and OSSAVE, STAR_VERSION
 			
 			.ASSUME	ADL = 0
 				
@@ -69,6 +70,9 @@
 			XREF	CRLF
 			XREF	CSTR_FNAME
 			XREF	CSTR_LINE
+			XREF	CSTR_FINDCH
+			XREF	CSTR_ENDSWITH
+			XREF	CSTR_CAT
 			XREF	FINDL
 			XREF	OUT_
 			XREF	ERROR_
@@ -76,6 +80,7 @@
 			XREF	BUF_DETOKEN
 			XREF	BUF_PBCDL
 			XREF	ONEDIT
+			XREF	TELL
 
 ; OSLINE: Invoke the line editor
 ;
@@ -321,11 +326,19 @@ COMDS:  		DB	'BY','E'+80h		; BYE
 			DW	STAR_EDIT
 			DB	'F','X'+80h		; FX
 			DW	STAR_FX
+			DB	'VERSIO','N'+80h	; VERSION
+			DW	STAR_VERSION
 			DB	FFh
 						
 ; *BYE
 ;
 STAR_BYE:		RST.LIS	00h			; Reset MOS
+	
+; *VERSION
+;
+STAR_VERSION:		CALL    TELL			; Output the welcome message
+			DB    	"AGON Version 1.03\n\r",0
+			RET
 	
 ; *EDIT linenum
 ;
@@ -437,11 +450,15 @@ $$:			CP.LIL 	A, (IX + sysvar_time + 0)
 ;  Outputs: Carry reset indicates no room for file.
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSLOAD:			PUSH	DE			; Stack the load address
+OSLOAD:			PUSH	BC			; Stack the size
+			PUSH	DE			; Stack the load address
 			LD	DE, ACCS		; Buffer address for filename
 			CALL	CSTR_FNAME		; Fetch filename from MOS into buffer
-			POP	DE			; Restore the load address
 			LD	HL, ACCS		; HL: Filename
+			CALL	EXT_DEFAULT		; Tack on the extension .BBC if not specified
+			CALL	EXT_HANDLER		; Get the default handler
+			POP	DE			; Restore the load address
+			POP	BC			; Restore the size
 			MOSCALL	mos_load		; Call LOAD in MOS
 			RET	NC			; If load returns with carry reset - NO ROOM
 			OR	A			; If there is no error (A=0)
@@ -464,15 +481,76 @@ OSERROR:		PUSH	AF			; Handle the MOS error
 ;           BC = length of data to save (bytes)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-OSSAVE:			PUSH	DE			; Stack the save address
+OSSAVE:			PUSH	BC			; Stack the size
+			PUSH	DE			; Stack the save address
 			LD	DE, ACCS		; Buffer address for filename
 			CALL	CSTR_FNAME		; Fetch filename from MOS into buffer
-			POP	DE			; Restore the save address
 			LD	HL, ACCS		; HL: Filename
+			CALL	EXT_DEFAULT		; Tack on the extension .BBC if not specified
+			CALL	EXT_HANDLER		; Get the default handler
+			POP	DE			; Restore the save address
+			POP	BC			; Restore the size
 			MOSCALL	mos_save		; Call SAVE in MOS
 			OR	A			; If there is no error (A=0)
 			RET	Z			; Just return
 			JR	OSERROR			; Trip an error
+
+; Check if an extension is specified in the filename
+; Add a default if not specified
+; HL: Filename (CSTR format)
+;
+EXT_DEFAULT:		PUSH	HL			; Stack the filename pointer	
+			LD	C, '.'			; Search for dot (marks start of extension)
+			CALL	CSTR_FINDCH
+			OR	A			; Check for end of string marker
+			JR	NZ, $F			; No, so skip as we have an extension at this point			
+			LD	DE, EXT_LOOKUP		; Get the first (default extension)
+			CALL	CSTR_CAT		; Concat it to string pointed to by HL
+$$:			POP	HL			; Restore the filename pointer
+			RET
+			
+; Check if an extension is valid and, if so, provide a pointer to a handler
+; HL: Filename (CSTR format)
+; Returns:
+;  A: Filename extension type (0=BBC tokenised, 1=ASCII untokenised)
+;
+EXT_HANDLER:		PUSH	HL			; Stack the filename pointer
+			LD	C, '.'			; Find the '.'
+			CALL	CSTR_FINDCH
+			LD	DE, EXT_LOOKUP		; The lookup table
+;
+EXT_HANDLER_1:		PUSH	HL			; Stack the pointer to the extension
+			CALL	CSTR_ENDSWITH		; Check whether the string ends with the entry in the lookup
+			POP	HL			; Restore the pointer to the extension
+			JR	Z, EXT_HANDLER_2	; We have a match!
+;
+$$:			LD	A, (DE)			; Skip to the end of the entry in the lookup
+			INC	DE
+			OR	A
+			JR	NZ, $B
+			INC	DE			; Skip the file extension # byte
+;
+			LD	A, (DE)			; Are we at the end of the table?
+			OR	A
+			JR	NZ, EXT_HANDLER_1	; No, so loop
+;			
+			LD      A,204			; Throw a "Bad name" error
+        		CALL    EXTERR
+        		DB    	"Bad name", 0
+;
+EXT_HANDLER_2:		INC	DE			; Skip to the file extension # byte
+			LD	A, (DE)		
+			POP	HL			; Restore the filename pointer
+			RET
+;
+
+
+; Extension lookup table
+; CSTR, Extension #
+;
+EXT_LOOKUP:		DB	'.BBC', 0, 0		; First is the default extension
+;			DB	'.TXT', 0, 1
+			DB	0			; End of table
 			
 ;OSCALL - Intercept page &FF calls and provide an alternative address
 ;
