@@ -2,12 +2,13 @@
 ; Title:	BBC Basic for AGON - Miscellaneous helper functions
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	13/10/2022
+; Last Updated:	11/01/2023
 ;
 ; Modinfo:
 ; 26/07/2022:	Added NULLTOCR and CRTONULL
 ; 28/09/2022:	Added CSTR_FNAME, BUF_DETOKEN, BUF_PBCDL
 ; 13/10/2022:	Added CSTR_LINE
+; 11/01/2023:	Added CSTR_FINDCH. CSTR_ENDSWITH, CSTR_CAT
 
 			INCLUDE	"equs.inc"
 			INCLUDE	"macros.inc"
@@ -22,6 +23,9 @@
 			XDEF	CRTONULL
 			XDEF	CSTR_FNAME
 			XDEF	CSTR_LINE
+			XDEF	CSTR_FINDCH
+			XDEF	CSTR_ENDSWITH
+			XDEF	CSTR_CAT
 			XDEF	BUF_DETOKEN
 			XDEF	BUF_PBCDL
 				
@@ -108,7 +112,7 @@ UPPRC:  		AND     7FH
 			CP      '`'
 			RET     C
 			AND     5FH			; Convert to upper case
-			RET
+			RET			
 
 ; Switch on A - lookup table immediately after call
 ;  A: Index into lookup table
@@ -117,11 +121,11 @@ SWITCH_A:		EX	(SP), HL		; Swap HL with the contents of the top of the stack
 			ADD	A, A			; Multiply A by two
 			ADD8U_HL 			; Add to HL (macro)
 			LD	A, (HL)			; follow the call. Fetch an address from the
-			INC	HL 				; table.
+			INC	HL 			; table.
 			LD	H, (HL)
 			LD	L, A
 			EX	(SP), HL		; Swap this new address back, restores HL
-			RET					; Return program control to this new address
+			RET				; Return program control to this new address
 
 ; Convert the buffer to a null terminated string and back
 ; HL: Buffer address
@@ -180,6 +184,56 @@ $$:			XOR	A			; Zero terminate the target string
 			INC	DE			; And point to next free address
 			RET
 			
+; Find the first occurrence of a character (case sensitive)
+; HL: Source
+;  C: Character to find
+; Returns:
+; HL: Pointer to character, or end of string marker
+;
+CSTR_FINDCH:		LD	A, (HL)			; Get source
+			CP	C			; Is it our character?
+			RET	Z			; Yes, so exit
+			OR	A			; Is it the end of string?
+			RET	Z			; Yes, so exit
+			INC	HL
+			JR	CSTR_FINDCH
+			
+; Check whether a string ends with another string (case insensitive)
+; HL: Source
+; DE: The substring we want to test with
+; Returns:
+;  F: Z if HL ends with DE, otherwise NZ
+;
+CSTR_ENDSWITH:		LD	A, (HL)			; Get the source string byte
+			CALL	UPPRC			; Convert to upper case
+			LD	C, A
+			LD	A, (DE)			; Get the substring byte
+			CP	C
+			RET	NZ			; Return NZ if at any point the strings don't match
+			OR	C			; Check whether both bytes are zero
+			RET	Z			; If so, return, as we have reached the end of both strings
+			INC	HL
+			INC	DE
+			JR	CSTR_ENDSWITH		; And loop
+			
+; Concatenate a string onto the end of another string
+; HL: Source
+; DE: Second string
+;
+CSTR_CAT:		LD	A, (HL)			; Loop until we find the end of the first string
+			OR	A
+			JR	Z, CSTR_CAT_1
+			INC	HL
+			JR	CSTR_CAT
+;
+CSTR_CAT_1:		LD	A, (DE)			; Copy the second string onto the end of the first string
+			LD	(HL), A
+			OR	A			; Check for end of string
+			RET	Z			; And return
+			INC	HL
+			INC	DE
+			JR	CSTR_CAT_1		; Loop until finished
+						
 ; Detokenise a character into a buffer
 ;  A: Character to detokenise
 ; IX: Output buffer
