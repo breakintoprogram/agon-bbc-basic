@@ -2,17 +2,16 @@
 ; Title:	BBC Basic for AGON - Equs
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/05/2022
+; Last Updated:	12/01/2023
 ;
 ; Modinfo:
+; 12/01/2023:	Removed some redundant entries
 
-			XREF	STAVAR
-			XREF	ACCS
-				
+			XREF		STAVAR
+			XREF		ACCS
+			
 RAM_Top:		EQU		0FF00h
 Stack_Top:		EQU		00000h	; Stack at top
-CHAR_COLS:		EQU		40	; Screen width in chars
-CHAR_ROWS:		EQU		30	; Screen height in chars
 	
 ; For GPIO
 ; PA not available on eZ80L92
@@ -45,52 +44,6 @@ GPIOMODE_INTAH:		EQU		7	; Interrupt, Active High
 GPIOMODE_INTFE:		EQU		8	; Interrupt, Falling Edge
 GPIOMODE_INTRE:		EQU		9	; Interrupt, Rising Edge
 	
-; For serial.asm
-; 
-BASE_CLOCK		EQU	24000000	; It's actually 48000000 in the Project Settings
-
-BAUD_500000		EQU	BASE_CLOCK / (16 * 500000)
-BAUD_250000		EQU	BASE_CLOCK / (16 * 250000)
-BAUD_125000		EQU	BASE_CLOCK / (16 * 125000)
-BAUD_19200		EQU	BASE_CLOCK / (16 * 19200)	
-
-; For interrupts.asm
-;
-
-;UARTs
-;
-UART0_IVECT		EQU		18h
-UART1_IVECT		EQU		1Ah
-
-;Ports
-;
-PB0_IVECT   		EQU   	30h	; AGON ITRP Interrupt   (Pin 28/IO17 of the ESP32)
-PB1_IVECT  	  	EQU  	32h	; AGON VBLANK Interrupt (Pin 23/IO15 of the ESP32)
-PB2_IVECT  	  	EQU   	34h
-PB3_IVECT  	  	EQU   	36h
-PB4_IVECT    		EQU   	38h
-PB5_IVECT    		EQU   	3Ah
-PB6_IVECT    		EQU   	3Ch
-PB7_IVECT    		EQU   	3Eh
-                       
-PC0_IVECT    		EQU   	40h
-PC1_IVECT    		EQU   	42h
-PC2_IVECT    		EQU   	44h
-PC3_IVECT    		EQU   	46h
-PC4_IVECT    		EQU   	48h
-PC5_IVECT    		EQU   	4Ah
-PC6_IVECT    		EQU   	4Ch
-PC7_IVECT    		EQU   	4Eh
-                       
-PD0_IVECT    		EQU   	50h
-PD1_IVECT    		EQU   	52h
-PD2_IVECT    		EQU   	54h
-PD3_IVECT    		EQU   	56h
-PD4_IVECT    		EQU   	58h
-PD5_IVECT    		EQU   	5Ah
-PD6_IVECT    		EQU   	5Ch
-PD7_IVECT    		EQU   	5Eh
-
 ; Originally in ram.asm
 ;
 OC:			EQU     STAVAR+15*4     ; CODE ORIGIN (O%)
