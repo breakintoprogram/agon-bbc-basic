@@ -2,10 +2,11 @@
 ; Title:	BBC Basic for AGON - Graphics stuff
 ; Author:	Dean Belfield
 ; Created:	07/08/2022
-; Last Updated:	19/08/2022
+; Last Updated:	15/02/2023
 ;
 ; Modinfo:
 ; 19/08/2022:	Added GETSCHR, POINT
+; 15/02/2023:	Fixed COLOUR, GCOL
 
 			
 			.ASSUME	ADL = 0
@@ -133,40 +134,19 @@ $$:			BIT.LIL	2, (IX+sysvar_vpd_pflags)
 
 
 ; COLOUR colour
-; COLOUR mode,R,G,B
+; COLOUR L,R,G,B
 ;
 COLOUR:			CALL	EXPRI			; The colour / mode
 			EXX
 			LD	A, L 
-			LD	(VDU_BUFFER+0), A	; Store first parameter; could be colour or mode at this point
+			LD	(VDU_BUFFER+0), A	; Store first parameter
 			CALL	NXT			; Are there any more parameters?
 			CP	','
-			JR	Z, COLOUR_1		; Yes, so we're parsing R, G, B next
+			JR	Z, COLOUR_1		; Yes, so we're parsing R,G,B next
 ;
-			LD	A, (VDU_BUFFER+0)	; The colour
-			LD	C, A
-			AND	7Fh
-			LD	(VDU_BUFFER+1), A	; Store it in the colour byte
-			LD	A, C			; Now process the mode
-			AND 	80h
-			RLCA
-			LD	(VDU_BUFFER+0), A	; And store (0: FG, 1: BG)
-;
-			LD	HL, COLOUR_LOOKUP	; The lookup table
-			LD	A, (VDU_BUFFER+1)	; The colour byte
-			AND	7
-			LD	C, A			; x 3
-			ADD	A, A
-			ADD	A, C
-			ADD8U_HL			; Index into the lookup table
-			VDU	11h			; VDU:COLOUR
-			VDU	(VDU_BUFFER+0)		; Mode
-			VDU	(HL)			; R
-			INC	HL
-			VDU	(HL)			; G
-			INC 	HL
-			VDU	(HL)			; B
-			JP	XEQ
+			VDU	11h			; Just set the colour
+			VDU	(VDU_BUFFER+0)
+			JP	XEQ			
 ;
 COLOUR_1:		CALL	COMMA
 			CALL	EXPRI			; Parse R
@@ -183,15 +163,15 @@ COLOUR_1:		CALL	COMMA
 			EXX
 			LD	A, L
 			LD	(VDU_BUFFER+3), A							
-			VDU	11h			; VDU:COLOUR
-			VDU	(VDU_BUFFER+0)		; Mode
+			VDU	13h			; VDU:COLOUR
+			VDU	(VDU_BUFFER+0)		; Logical Colour
+			VDU	10h			; Physical Colour
 			VDU	(VDU_BUFFER+1)		; R
 			VDU	(VDU_BUFFER+2)		; G
 			VDU	(VDU_BUFFER+3)		; B
 			JP	XEQ
 							
 ; GCOL mode,colour
-; GCOL mode,R,G,B
 ;
 GCOL:			CALL	EXPRI			; Parse MODE
 			EXX
@@ -199,60 +179,16 @@ GCOL:			CALL	EXPRI			; Parse MODE
 			LD	(VDU_BUFFER+0), A	
 			CALL	COMMA
 ;
-			CALL	EXPRI			; Parse R, or the Colour #
+			CALL	EXPRI			; Parse Colour
 			EXX
 			LD	A, L
 			LD	(VDU_BUFFER+1), A
-			CALL	NXT			; Check for any more parameters
-			CP	','
-			JR	Z, $F			; Yes, so fetch G and B
-;			
-			LD	HL, COLOUR_LOOKUP	; The lookup table
-			LD	A, (VDU_BUFFER+1)	; The colour
-			AND	7
-			LD	C, A			; x 3
-			ADD	A, A
-			ADD	A, C
-			ADD8U_HL			; Index into the lookup table
+;
 			VDU	12h			; VDU:GCOL
 			VDU	(VDU_BUFFER+0)		; Mode
-			VDU	(HL)			; R
-			INC	HL
-			VDU	(HL)			; G
-			INC 	HL
-			VDU	(HL)			; B
+			VDU	(VDU_BUFFER+1)		; Colour
 			JP	XEQ
-;
-; Read in the G and B values
-;
-$$:			CALL	COMMA
-			CALL	EXPRI			; Parse G
-			EXX
-			LD	A, L
-			LD	(VDU_BUFFER+2), A	
-			CALL	COMMA
-			CALL	EXPRI			; Parse B
-			EXX
-			LD	A, L
-			LD	(VDU_BUFFER+3), A	
-			VDU	12h			; GCOL
-			VDU	(VDU_BUFFER+0)		; Mode
-			VDU	(VDU_BUFFER+1)		; R
-			VDU	(VDU_BUFFER+2)		; G
-			VDU	(VDU_BUFFER+3)		; B
-			JP	XEQ			
 			
-; BBC Micro Emulated Colours
-;
-COLOUR_LOOKUP:		DB	00h,00h,00h		; Black
-			DB	FFh,00h,00h		; Red
-			DB	00h,FFh,00h		; Green
-			DB	FFh,FFh,00h		; Yellow
-			DB	00h,00h,FFh		; Blue
-			DB	FFh,00h,FFh		; Magenta
-			DB	00h,FFh,FFh		; Cyan
-			DB	FFh,FFh,FFh		; White			
-
 ; PLOT mode,x,y
 ;
 PLOT:			CALL	EXPRI		; Parse mode
