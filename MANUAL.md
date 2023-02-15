@@ -74,30 +74,29 @@ If a file extension is omitted, ".BBC" is assumed. The file is saved as it is st
 Three modes currently supported by the VDP.
 These can be tweaked by modifying the function set_mode in the VDP code.
 
-- `MODE 0`: 640 x 480 @ 60Hz (VGA)
-- `MODE 1`: 512 x 384 @ 60hz (VGA)
-- `MODE 2`: 320 x 200 @ 75Hz (VGA)
+- `MODE 0`: 1024 x 768 @ 60Hz,  2 colours per pixel (paletted) 
+- `MODE 1`:  512 x 384 @ 60hz, 16 colours per pixel (paletted)
+- `MODE 2`:  320 x 200 @ 75Hz, 64 colours per pixel
 
-### COLOUR n
-### COLOUR r,g,b
+Note that these resolutions require VPD 1.03 or higher.
 
-If one parameter is passed, it will pick one of 8 primary colours:
+### COLOUR c
+### COLOUR c,r,g,b
 
-- 0: Black
-- 1: Red
-- 2: Green
-- 3: Yellow
-- 4: Blue
-- 5: Magenta
-- 6: Cyan
-- 7: White
+If one parameter is passed:
 
-If three parameters are passed, then the colour will be set to the specified rgb colour where each component is an integer between 0 and 255.
+- If c is between 0 and 63, the foreground text colour will be set
+- If c is between 128 and 191, the background text colour will be set
 
-### GCOL mode,n
-### GCOL mode,r,g,b
+If three parameters are passed, and the mode is a paletted mode, then the colour c will be set to the passed rgb value
 
-As COLOUR. Mode is currently ignored
+Note that this requires VPD 1.03 or higher.
+
+### GCOL mode,c
+
+Set the graphics colour to c; mode is currently ignored.
+
+Note that this requires VPD 1.03 or higher.
 
 ### POINT(x,y)
 
