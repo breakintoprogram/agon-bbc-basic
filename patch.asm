@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	11/01/2023
+; Last Updated:	15/02/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -16,6 +16,7 @@
 ; 11/10/2022:	Fixed bug introduced in previous fix to OSBYTE_13, OSCLI now calls MOS
 ; 20/10/2022:	ESC in GET now works, tidied up error handling in OSCLI
 ; 11/01/2023:	Added default .BBC extension to OSLOAD and OSSAVE, STAR_VERSION
+; 15/02/2023:	Updated STAR_VERSION TO 1.04
 			
 			.ASSUME	ADL = 0
 				
@@ -337,7 +338,7 @@ STAR_BYE:		RST.LIS	00h			; Reset MOS
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"AGON Version 1.03\n\r",0
+			DB    	"AGON Version 1.04\n\r",0
 			RET
 	
 ; *EDIT linenum
