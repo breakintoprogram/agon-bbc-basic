@@ -6,10 +6,11 @@
 ; Author:	(C) Copyright  R.T.Russell 31-12-1983
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/08/2022
+; Last Updated:	26/02/2023
 ;
 ; Modinfo:
 ; 03/08/2022:	Removed TIME and KEY_CODE - now in MOS
+; 26/02/2023:	Tidied up and updated comments
 
 			.ASSUME	ADL = 0
 
@@ -45,68 +46,69 @@
 			XDEF	INCREM
 			
 			XDEF	FLAGS
-;			XDEF	TIME
-;			XDEF	KEY_CODE
-			XDEF	CURSOR_X
-			XDEF	CURSOR_Y
-;			XDEF	CHARPOS_X
-;			XDEF	CHARPOS_Y
+			XDEF	OSWRCHPT
+			XDEF	OSWRCHCH
+			XDEF	OSWRCHFH
 			
-			XDEF	INV_START
 			XDEF	RAM_START
 			XDEF	RAM_END
 			XDEF	USER
 
-INV_START:		DS		256				; IM2 Interrupt vectors
-	
 RAM_START:
 
 ;n.b. ACCS, BUFFER & STAVAR must be on page boundaries.
 ;
-ACCS:			DS		256             ; STRING ACCUMULATOR
-BUFFER:			DS		256             ; STRING INPUT BUFFER
-STAVAR:			DS	 	27*4            ; STATIC VARIABLES
-DYNVAR: 		DS 		54*2            ; DYN. VARIABLE POINTERS
-FNPTR:  		DS    		2               ; DYN. FUNCTION POINTER
-PROPTR: 		DS		2               ; DYN. PROCEDURE POINTER
+ACCS:			DS		256             ; String Accumulator
+BUFFER:			DS		256             ; String Input Buffer
+STAVAR:			DS	 	27*4            ; Static Variables
+DYNVAR: 		DS 		54*2            ; Dynamic Variable Pointers
+FNPTR:  		DS    		2               ; Dynamic Function Pointers
+PROPTR: 		DS		2               ; Dynamic Procedure Pointers
 ;
-PAGE_:   		DS		2               ; START OF USER PROGRAM
-TOP:    		DS		2               ; FIRST LOCN AFTER PROG.
-LOMEM:  		DS		2               ; START OF DYN. STORAGE
-FREE:   		DS		2               ; FIRST FREE-SPACE BYTE
-HIMEM:  		DS		2               ; FIRST PROTECTED BYTE
+PAGE_:   		DS		2               ; Start of User Program
+TOP:    		DS		2               ; First Location after User Program
+LOMEM:  		DS		2               ; Start of Dynamic Storage
+FREE:   		DS		2               ; First Free Space Byte
+HIMEM:  		DS		2               ; First Protected Byte
 ;
-LINENO: 		DS		2               ; LINE NUMBER
-TRACEN:			DS		2               ; TRACE FLAG
-AUTONO:			DS		2               ; AUTO FLAG
-ERRTRP:			DS		2               ; ERROR TRAP
-ERRTXT:			DS		2               ; ERROR MESSAGE POINTER
-DATPTR:			DS		2               ; DATA POINTER
-ERL:			DS		2               ; ERROR LINE
-ERRLIN:			DS		2               ; "ON ERROR" LINE
-RANDOM:			DS		5               ; RANDOM NUMBER
-COUNT:			DS		1               ; PRINT POSITION
-WIDTH:			DS		1               ; PRINT WIDTH
-ERR:			DS		1               ; ERROR NUMBER
-LISTON:			DS		1               ; LISTO & OPT FLAG
-INCREM:			DS		1               ; AUTO INCREMENT
+LINENO: 		DS		2               ; Line Number
+TRACEN:			DS		2               ; Trace Flag
+AUTONO:			DS		2               ; Auto Flag
+ERRTRP:			DS		2               ; Error Trap
+ERRTXT:			DS		2               ; Error Message Pointer
+DATPTR:			DS		2               ; Data Pointer
+ERL:			DS		2               ; Error Line
+ERRLIN:			DS		2               ; The "ON ERROR" Line
+RANDOM:			DS		5               ; Random Number
+COUNT:			DS		1               ; Print Position
+WIDTH:			DS		1               ; Print Width
+ERR:			DS		1               ; Error Number
+LISTON:			DS		1               ; LISTO (bottom nibble)
+							; - BIT 0: If set, output a space after the line number
+							; - BIT 1: If set, then indent FOR/NEXT loops
+							; - BIT 2: If set, then indent REPEAT/UNTIL loops
+							; - BIT 3: If set, then output to buffer for *EDIT
+							; OPT FLAG (top nibble)
+							; - BIT 4: If set, then list whilst assembling
+							; - BIT 5: If set, then assembler errors are reported
+							; - BIT 6: If set, then place the code starting at address pointed to by O%
+							; - BIT 7: Unused
+INCREM:			DS		1               ; Auto-Increment Value
 ;
 ; Extra Agon-implementation specific system variables
 ;
-FLAGS:			DS		1		; Flags: B7=ESC PRESSED, B6=ESC DISABLED, B4=COPY PRESSED
-;TIME:			DS		4
-;KEY_CODE:		DS		1
-;VDU_BUFFER:		DS		8		; 8 bytes of temporary storage for the VDU buffer
-CURSOR_X:		DS		1
-CURSOR_Y:		DS		1
-;CHARPOS_X:		DS		1
-;CHARPOS_Y		DS		1
+FLAGS:			DS		1		; Miscellaneous flags
+							; - BIT 7: Set if ESC pressed
+							; - BIT 6: Set to disable ESC
+OSWRCHPT:		DS		2		; Pointer for *EDIT
+OSWRCHCH:		DS		1		; Channel of OSWRCH
+							; - 0: Console
+							; - 1: File
+OSWRCHFH:		DS		1		; File handle for OSWRCHCHN
 ;
 ; This must be at the end
 ;
 RAM_END:							
-	
-				ALIGN	256
-				
+				ALIGN	256			
 USER:							; Must be aligned on a page boundary
 	
