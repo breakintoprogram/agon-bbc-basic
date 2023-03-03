@@ -2,9 +2,10 @@
 ; Title:	BBC Basic for AGON - Audio stuff
 ; Author:	Dean Belfield
 ; Created:	19/09/2022
-; Last Updated:	19/09/2022
+; Last Updated:	22/02/2023
 ;
 ; Modinfo:
+; 22/02/2023:	Fixed typo in sysvar_audioSuccess
 
 			
 			.ASSUME	ADL = 0
@@ -99,7 +100,7 @@ SOUND0:			RES.LIL	3, (IX+sysvar_vpd_pflags)
 $$:			BIT.LIL	3, (IX+sysvar_vpd_pflags)
 			JR	Z, $B			; Wait for the result
 			CALL	LTRAP			; Check for ESC
-			LD.LIL	A, (IX+syscar_audioSuccess)
+			LD.LIL	A, (IX+sysvar_audioSuccess)
 			AND	A			; Check if VDP has queued the note
 			JR	Z, SOUND0		; No, so loop back and send again
 ;
