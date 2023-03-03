@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	15/02/2023
+; Last Updated:	26/02/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -17,6 +17,7 @@
 ; 20/10/2022:	ESC in GET now works, tidied up error handling in OSCLI
 ; 11/01/2023:	Added default .BBC extension to OSLOAD and OSSAVE, STAR_VERSION
 ; 15/02/2023:	Updated STAR_VERSION TO 1.04
+; 26/02/2023:	Fixed STAR_EDIT to use LISTIT instead of duplicated code, added OSBYTE_A0, tweaked OSWRCH, SAVE and LOAD as text files
 			
 			.ASSUME	ADL = 0
 				
@@ -77,11 +78,18 @@
 			XREF	FINDL
 			XREF	OUT_
 			XREF	ERROR_
-			XREF	DECODE
-			XREF	BUF_DETOKEN
-			XREF	BUF_PBCDL
 			XREF	ONEDIT
 			XREF	TELL
+			XREF	OSWRCHPT
+			XREF	OSWRCHCH
+			XREF	OSWRCHFH
+			XREF	LISTON
+			XREF	LISTIT
+			XREF	PAGE_
+			XREF	ONEDIT1
+			XREF	CLEAN
+			XREF	NEWIT
+			XREF	BAD
 
 ; OSLINE: Invoke the line editor
 ;
@@ -161,7 +169,31 @@ PROMPT: 		LD	A,'>'
 ; OSWRCH: Write a character out to the ESP32 VDU handler via the MOS
 ; A: Character to write
 ;
-OSWRCH:			RST.LIS	10h			; This is at odds with the manual - assembles to RST.L
+OSWRCH:			PUSH	HL
+			LD	HL, LISTON		; Fetch the LISTON variable
+			BIT	3, (HL)			; Check whether we are in *EDIT mode
+			JR	NZ, OSWRCH_BUFFER	; Yes, so just output to buffer
+;
+			LD	HL, (OSWRCHCH)		; L: Channel #
+			DEC	L			; If it is 1
+			JR	Z, OSWRCH_FILE		; Then we are outputting to a file
+;
+			POP	HL			; Otherwise
+			RST.LIS	10h			; Output the character to MOS
+			RET
+;	
+OSWRCH_BUFFER:		LD	HL, (OSWRCHPT)		; Fetch the pointer buffer
+			LD	(HL), A			; Echo the character into the buffer
+			INC	HL			; Increment pointer
+			LD	(OSWRCHPT), HL		; Write pointer back
+			POP	HL			
+			RET
+;
+OSWRCH_FILE:		PUSH	DE
+			LD	E, H			; Filehandle to E
+			CALL	OSBPUT			; Write the byte out
+			POP	DE
+			POP	HL
 			RET
 
 ; OSRDCH: Read a character in from the ESP32 keyboard handler
@@ -345,73 +377,30 @@ STAR_VERSION:		CALL    TELL			; Output the welcome message
 ;
 STAR_EDIT:		CALL	ASC_TO_NUMBER		; DE: Line number to edit
 			EX	DE, HL			; HL: Line number
-			CALL	FINDL			; HL: Address in RAM of tokenised line
+			CALL	FINDL			; HL: Address in RAM of tokenised line			
 			LD	A, 41			; F:NZ If the line is not found
 			JP	NZ, ERROR_		; Do error 41: No such line in that case
 ;
-; Loop through and detokenise this line
-; At this point HL is the first byte of the tokenised line
+; Use LISTIT to output the line to the ACCS buffer
 ;
-; BBC BASIC for Z80 lines are stored as follows:
-;
-; - [LEN] [LSB] [MSB] [DATA...] [0x0D]: LSB, MSB = line number
-;
-STAR_EDIT1:		LD	IX, ACCS		; Destination address
-;
-			CALL	PROMPT			; Display the prompt
-;
-			LD	A,(HL)			; Fetch the length from the BASIC line
-			SUB	4			; Get the data length
-			LD	B, A			; Store in B
-			INC 	HL
-;
-			LD	A, (HL)			; Line number low byte
+			INC	HL			; Skip the length byte
+			LD	E, (HL)			; Fetch the line number
 			INC	HL
-			PUSH	BC			; Preserve the data length counter
-			PUSH	HL			; Preserve the BASIC pointer 
-			LD	H, (HL)			; Line number high byte
-			LD	L, A
-			CALL	BUF_PBCDL		; Print out the line number
-			LD	(IX), ' '		; Followed by a space
-			INC	IX
-			POP	HL			; Unstack the BASIC pointer
-			POP	BC			; And the data length counter
+			LD	D, (HL)
 			INC	HL
-;
-; Now write out the rest of the line, dealing with any tokens along the way
-;
-$$:			LD	A,(HL)			; Fetch the data
-			INC	HL			; Skip to the next byte
-			CP	8Dh			; Is it a line number following a GOTO?
-			JR	Z, STAR_EDIT2		; Yes, so deal with that
-			CALL	BUF_DETOKEN		; Write to screen, detokenise tokens
-STAR_EDITL:		DJNZ	$B			; And loop
-			XOR	A
-			LD	(IX),A			; Write out the final byte
-;
-; Now invoke the editor
-;
+			LD	IX, ACCS		; Pointer to where the copy is to be stored
+			LD	(OSWRCHPT), IX
+			LD	IX, LISTON		; Pointer to LISTON variable in RAM
+			LD	A, (IX)			; Store that variable
+			PUSH	AF
+			LD	(IX), 09h		; Set to echo to buffer
+			CALL	LISTIT
+			POP	AF
+			LD	(IX), A			; Restore the original LISTON variable			
 			LD	HL, ACCS		; HL: ACCS
 			LD	E, L			;  E: 0 - Don't clear the buffer; ACCS is on a page boundary so L is 0
 			CALL	OSLINE1			; Invoke the editor
 			JP	ONEDIT			; Jump back to the BASIC loop just after the normal line edit
-;
-STAR_EDIT2:		PUSH    HL			; LD IY,HL
-			POP     IY
-			PUSH    BC
-			CALL    DECODE			; Decode the 3 byte GOTO type line number
-			POP     BC
-			EXX				; The result is in HL'
-			PUSH    BC
-			CALL    BUF_PBCDL		; And output it
-			POP     BC
-			EXX
-			PUSH    IY			; LD HL,IY
-			POP     HL
-			DEC	B			; Knock 3 bytes off the counter
-			DEC	B
-			DEC	B
-			JR	STAR_EDITL		; And jump back to the loop
 
 ; OSCLI FX n
 ;
@@ -431,6 +420,8 @@ STAR_FX:		CALL	ASC_TO_NUMBER		; C: FX #
 ;
 OSBYTE:			CP	13H			; We've only got one *FX command at the moment
 			JR	Z, OSBYTE_13		; *FX 13
+			CP	A0H
+			JR	Z, OSBYTE_A0		
 			JP	HUH			; Anything else trips an error
 
 ; OSBYTE 0x13 (FX 19): Wait for vertical blank interrupt
@@ -443,6 +434,18 @@ $$:			CP.LIL 	A, (IX + sysvar_time + 0)
 			POP	IX
 			LD	L, 0			; Returns 0
 			JP	COUNT0
+			
+; OSBYTE 0xA0: Fetch system variable
+;  L: The system variable to fetch
+;
+OSBYTE_A0:		PUSH	IX
+			MOSCALL	mos_sysvars		; Fetch pointer to system variables
+			LD.LIL	BC, 0			
+			LD	C, L			; BCU = L
+			ADD.LIL	IX, BC			; Add to IX
+			LD.LIL	L, (IX + 0)		; Fetch the return value
+			POP	IX
+			JP 	COUNT0
 
 ;OSLOAD - Load an area of memory from a file.
 ;   Inputs: HL addresses filename (CR terminated)
@@ -460,7 +463,43 @@ OSLOAD:			PUSH	BC			; Stack the size
 			CALL	EXT_HANDLER		; Get the default handler
 			POP	DE			; Restore the load address
 			POP	BC			; Restore the size
-			MOSCALL	mos_load		; Call LOAD in MOS
+			OR	A
+			JR 	Z, OSLOAD_BBC
+;
+; Load the file in as a text file
+;
+OSLOAD_TXT:		PUSH	HL			; Store the filename poiner
+			CALL	NEWIT			; Call NEW
+			POP	HL
+			XOR	A			; Set file attributes to read
+			CALL	OSOPEN			; Open the file			
+			LD 	E, A 			; The filehandle
+			OR	A
+			LD	A, 4			; File not found error
+			JR	Z, OSERROR		; Jump to error handler
+;			
+OSLOAD_TXT0:		LD	HL, ACCS 		; Where the input is going to be stored
+OSLOAD_TXT1:		CALL	OSBGET			; Get the byte
+			LD	(HL), A 		; Store in the input buffer			
+			INC	L
+			CP	CR			; Check for CR
+			JR	NZ, OSLOAD_TXT1		; If not, then loop to read the rest of the characters in
+			CALL	OSBGET			; Discard the LF
+			CP	LF			; If it is not LF
+			JP	NZ, BAD			; Then jump to Bad Program error
+			PUSH	DE			; Preserve the filehandle
+			CALL	ONEDIT1			; Enter the line in memory
+			CALL	CLEAN
+			POP	DE
+			CALL	OSSTAT			; End of file?
+			JR	NZ, OSLOAD_TXT0		; No, so loop
+			CALL	OSSHUT			; Close the file
+			SCF				; Flag to BASIC that we're good
+			RET			
+;
+; Load the file in as a tokenised binary blob
+;
+OSLOAD_BBC:		MOSCALL	mos_load		; Call LOAD in MOS
 			RET	NC			; If load returns with carry reset - NO ROOM
 			OR	A			; If there is no error (A=0)
 			SCF				; Need to set carry indicating there was room
@@ -491,7 +530,43 @@ OSSAVE:			PUSH	BC			; Stack the size
 			CALL	EXT_HANDLER		; Get the default handler
 			POP	DE			; Restore the save address
 			POP	BC			; Restore the size
-			MOSCALL	mos_save		; Call SAVE in MOS
+			OR	A			; Is the extension .BBC
+			JR	Z, OSSAVE_BBC		; Yes, so use that
+;
+; Save the file out as a text file
+;
+OSSAVE_TXT:		LD 	A, (OSWRCHCH)		; Stack the current channel
+			PUSH	AF
+			XOR	A
+			INC	A			; Make sure C is clear, A is 1, for OPENOUT
+			LD	(OSWRCHCH), A
+			CALL	OSOPEN			; Open the file
+			LD	(OSWRCHFH), A		; Store the file handle for OSWRCH
+			LD	IX, LISTON		; Required for LISTIT
+			LD	HL, (PAGE_)		; Get start of program area
+			EXX
+			LD	BC, 0			; Set the initial indent counters
+			EXX			
+OSSAVE_TXT1:		LD	A, (HL)			; Check for end of program marker
+			OR	A		
+			JR	Z, OSSAVE_TXT2
+			INC	HL			; Skip the length byte
+			LD	E, (HL)			; Get the line number
+			INC	HL
+			LD	D, (HL)
+			INC	HL
+			CALL	LISTIT			; List the line
+			JR	OSSAVE_TXT1
+OSSAVE_TXT2:		LD	A, (OSWRCHFH)		; Get the file handle
+			LD	E, A
+			CALL	OSSHUT			; Close it
+			POP	AF			; Restore the channel
+			LD	(OSWRCHCH), A		
+			RET
+;
+; Save the file out as a tokenised binary blob
+;
+OSSAVE_BBC:		MOSCALL	mos_save		; Call SAVE in MOS
 			OR	A			; If there is no error (A=0)
 			RET	Z			; Just return
 			JR	OSERROR			; Trip an error
@@ -550,7 +625,8 @@ EXT_HANDLER_2:		INC	DE			; Skip to the file extension # byte
 ; CSTR, Extension #
 ;
 EXT_LOOKUP:		DB	'.BBC', 0, 0		; First is the default extension
-;			DB	'.TXT', 0, 1
+			DB	'.TXT', 0, 1
+			DB	'.ASC', 0, 1
 			DB	0			; End of table
 			
 ;OSCALL - Intercept page &FF calls and provide an alternative address
