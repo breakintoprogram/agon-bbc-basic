@@ -20,11 +20,13 @@ I've worked with Bernardo Kastrup aka The Byte Attic on another one of his proje
 
 ### Assembling and Running
 
-This project is designed to be assembled and linked using the [Zilog ZDS II toolkit](https://t.co/dT5DHWYcB5). You will also need a ZUSBSC00100ZACG USB Smart Cable to connect to the Agon in order to upload this to download and run.
+This project is designed to be assembled and linked using the Zilog ZDS II toolkit - see the [readme](https://github.com/breakintoprogram/agon-mos/blob/main/README.md#build) in MOS for more details.
 
 NB:
-- It currently compiles to load in RAM at &40000, so can be downloaded once compiled.
+- The project is configured to download this to RAM at &40000 via the ZDS cable
 - Source level debugging not working correctly as this runs in a 64K Z80 segment in the eZ80 RAM
+
+Of course you can just copy the latest bbcbasic.bin file to the Agon SD card
 
 ### License
 
