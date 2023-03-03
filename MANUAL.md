@@ -67,7 +67,13 @@ The following statements differ from the BBC Basic standard:
 ### LOAD
 ### SAVE
 
-If a file extension is omitted, ".BBC" is assumed. The file is saved as it is stored in memory, in BBC BASIC for Z80 tokenised format. This differs slightly from the Acorn format.
+The following file extensions are supported:
+
+- `.BBC`: BBC BASIC for Z80 tokenised format
+- `.TXT`: Plain text
+- `.ASC`: Plain text
+
+If a file extension is omitted, ".BBC" is assumed
 
 ### MODE n
 
@@ -116,24 +122,33 @@ Plot supports the following operations:
 
 Returns the ASCII character at position x,y
 
+### SOUND channel,volume,pitch,duration 
+
+- `Channel`: 0 to 2
+- `Volume`: 0 (off) to -15 (full volume)
+- `Pitch`: 0 to 255
+- `Duration`: -1 to 254 (duration in 20ths of a second, -1 = play forever)
+
 ### VDU
 
 The VDU command is a work-in-progress with a handful of mappings implemented:
 
-- `VDU 8`: Backspace
-- `VDU 9`: Advance one character
-- `VDU 10`: Line feed
-- `VDU 11`: Move cursor up one line
+- `VDU 8`: Cursor left
+- `VDU 9`: Cursor right
+- `VDU 10`: Cursor down
+- `VDU 11`: Cursor up
 - `VDU 12`: CLS
 - `VDU 13`: Carriage return
 - `VDU 16`: CLG
-- `VDU 18, mode, r, g, b`: GCOL mode, r, g, b
-- `VDU 23, n`: VDP commands
-- `VDU 22,n`: Mode n
-- `VDU 25,mode, x; y;`: PLOT mode,x,y
-- `VDU 29, x; y;`: Set graphics origin to x,y
+- `VDU 17 colour`: COLOUR colour
+- `VDU 18, mode, colour`: GCOL mode, colour
+- `VDU 19, l, p, r, g, b`: COLOUR l, r, g, b
+- `VDU 22, n`: Mode n
+- `VDU 23, n`: UDG / System Commands
+- `VDU 25, mode, x; y;`: PLOT mode, x, y
+- `VDU 29, x; y;`: Graphics origin
 - `VDU 30`: Home cursor
-- `VDU 31, x, y`: TAB(x,y)
+- `VDU 31, x, y`: TAB(x, y)
 - `VDU 127`: Backspace
 
 Examples:
