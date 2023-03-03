@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	12/01/2023
+; Last Updated:	26/02/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -12,6 +12,7 @@
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
 ; 28/09/2022:	Tidied up KEYWDS and ERRWDS, Added KEYWDS and KEYWDL to XDEFs, entry point ONEDIT for *EDIT
 ; 12/01/2023:	Added MOS C-style parameter processing routines and autoload functionality
+; 26/02/2023:	Text in comments are not detokenised, Tweaks for *EDIT and OSLOAD_TXT
 
 			.ASSUME	ADL = 0				
 
@@ -55,6 +56,9 @@
 			XDEF	KEYWDS
 			XDEF	KEYWDL
 			XDEF	ONEDIT
+			XDEF	ONEDIT1
+			XDEF	LISTIT
+			XDEF	CLEAN
 				
 			XREF	LISTON
 			XREF	ERRTXT
@@ -103,6 +107,9 @@
 			XREF	PROPTR
 			XREF	CHECK
 			XREF	TERMQ
+			XREF	OSWRCHCH
+			XREF	NEWIT
+			XREF	BAD
 ;
 TERROR:			EQU     85H
 LINE_:			EQU     86H
@@ -174,6 +181,7 @@ COLD:			LD      HL,STAVAR       	; Cold start
 PURGE:			LD      (HL),A          	; Clear scratchpad
 			INC     L
 			JR      NZ,PURGE
+			LD	(OSWRCHCH), A		; Set default output channel to CONSOLE
 			LD      A,37H           	; Set LISTO sysvar; the bottom nibble is LISTO (7), top nibble is OPT (3)
 			LD      (LISTON),A		
 			LD      HL,NOTICE
@@ -229,7 +237,14 @@ CLOOP:			SCF				; See above - not sure why this is here!
 ;
 NOAUTO:			LD      HL,ACCS			; Storage for the line editor (256 bytes)
 			CALL    OSLINE          	; Call the line editor in MOS
-ONEDIT:			XOR     A			; Entry point after *EDIT
+ONEDIT:			CALL	ONEDIT1			; Enter the line into memory
+			CALL    CLEAN			; Set TOP, write out &FFFF end of program marker
+			JP      CLOOP			; Jump back to immediate mode
+;
+; This bit enters the line into memory
+; Also called from OSLOAD_TXT
+;
+ONEDIT1:		XOR     A			; Entry point after *EDIT
 			LD      (COUNT),A
 			LD      IY,ACCS
 			CALL    LINNUM			; HL: The line number from the input buffer
@@ -260,7 +275,7 @@ LNZERO:			LD      DE,BUFFER		; Buffer for tokenised BASIC
 ;
 			PUSH    BC
 			PUSH    HL
-			CALL    SETTOP          	; Set top
+			CALL    SETTOP          	; Set TOP sysvar
 			POP     HL
 			CALL    FINDL
 			CALL    Z,DEL
@@ -309,9 +324,8 @@ ATEND:			POP     BC              	; Line length
 			DEC     C
 			DEC     C
 			LDIR                    	; Add line
-			CALL    CLEAN
-			JP      CLOOP	
-;
+			RET
+;;
 ; List of tokens and keywords. If a keyword is followed by 0 then
 ; it will only match with the keyword followed immediately by
 ; a delimiter
@@ -508,9 +522,9 @@ ERRWDS:			DB    7, 'room', 0		;  0: No room
 			DB    0				; 44 *
 			DB    1, '#', 0			; 45: Missing #
 ;
-;COMMANDS:
+; COMMANDS:
 ;
-;DELETE line,line
+; DELETE line,line
 ;
 DELETE:			CALL    SETTOP          	; Set TOP sysvar (first free byte at end of BASIC program)
 			CALL    DLPAIR			; Get the line number pair - HL: BASIC program address, BC: second number (or 0 if missing)
@@ -541,7 +555,7 @@ DELET1:			LD      A,(HL)			; Check whether it's the last line
 LISTO:			INC     IY              	; Skip "O" byte
 			CALL    EXPRI			; Get expr
 			EXX
-			LD      A,L			
+			LD      A,L
 			LD      (LISTON),A		; Store in LISTON sysvar
 CLOOP1:			JP      CLOOP
 ;
@@ -581,7 +595,7 @@ LISTB:			LD      E,A             	; E: IF clause string length
 ;
 LISTA:			EXX
 			LD      IX,LISTON		; IX : Pointer to the LISTON (LISTO and OPT) sysvar
-			LD      BC,0            	; BC': Indentation counter
+			LD      BC,0            	; BC': Indentation counter (C: FOR/NEXT, B: REPEAT/UNTIL)
 			EXX
 			LD      A,20			; Number of lines to list
 ;
@@ -659,10 +673,10 @@ WARMNC:			JP      NC,WARM			; If exceeded the terminating line number then jump 
 			POP     BC              	; Restore second line number
 			JR      LISTC			; Loop back to do next line
 ;
-;RENUMBER
-;RENUMBER start
-;RENUMBER start,increment
-;RENUMBER ,increment
+; RENUMBER
+; RENUMBER start
+; RENUMBER start,increment
+; RENUMBER ,increment
 ;
 RENUM:			CALL    CLEAR           	; Uses the dynamic area
 			CALL    PAIR            	; LOAD HL,BC
@@ -789,10 +803,10 @@ RENUM6:			POP     HL
 			POP     BC
 			JR      RENUM7
 ;
-;AUTO
-;AUTO start,increment
-;AUTO start
-;AUTO ,increment
+; AUTO
+; AUTO start,increment
+; AUTO start
+; AUTO ,increment
 ;
 AUTO:			CALL    PAIR
 			LD      (AUTONO),HL
@@ -800,19 +814,20 @@ AUTO:			CALL    PAIR
 			LD      (INCREM),A
 			JR      CLOOP0
 ;
-;BAD
-;NEW
+; BAD
+; NEW
 ;
-BAD:			CALL    TELL            ;"Bad program'
-			DB    3
+BAD:			CALL    TELL            	; Output "Bad program" error
+			DB    3				; Token for "BAD"
 			DB    'program'
 			DB    CR
 			DB    LF
-			DB    0
-NEW:			CALL    NEWIT
-			JR      CLOOP0
+			DB    0				; Falls through to NEW	
 ;
-;OLD
+NEW:			CALL    NEWIT			; Call NEWIT (clears program area and variables)
+			JR      CLOOP0			; And jump back to the command line	
+;
+; OLD
 ;
 OLD:			LD      HL,(PAGE_)		; HL: The start of the BASIC program area
 			PUSH    HL			; Stack it
@@ -829,7 +844,7 @@ OLD:			LD      HL,(PAGE_)		; HL: The start of the BASIC program area
 			CALL    CLEAN			; Further checks for bad program, set TOP, write out &FFFF end of program marker
 CLOOP0:			JP      CLOOP			; Jump back to the command loop
 ;
-;LOAD filename
+; LOAD filename
 ;
 LOAD:			CALL    EXPRS           	; Get the filename
 			LD      A,CR			; DE points to the last byte of filename in ACCS
@@ -838,21 +853,21 @@ LOAD:			CALL    EXPRS           	; Get the filename
 			CALL    CLEAR			; Further checks for bad program, set TOP, write out &FFFF end of program marker
 			JR      WARM0			; Jump back to the command loop
 ;
-;SAVE filename
+; SAVE filename
 ;
-SAVE:			CALL    SETTOP          ;SET TOP
-			CALL    EXPRS           ;FILENAME
-			LD      A,CR
+SAVE:			CALL    SETTOP          	; Set TOP sysvar
+			CALL    EXPRS           	; Get the filename
+			LD      A,CR			; Terminate the filename with a CR
 			LD      (DE),A
-			LD      DE,(PAGE_)
-			LD      HL,(TOP)
-			OR      A
+			LD      DE,(PAGE_)		; DE: Start of program memory
+			LD      HL,(TOP)		; HL: Top of program memory
+			OR      A			; Calculate program size (TOP-PAGE)
 			SBC     HL,DE
-			LD      B,H             ;LENGTH OF PROGRAM
+			LD      B,H             	; BC: Length of program in bytes
 			LD      C,L
-			LD      HL,ACCS
-			CALL    OSSAVE
-WARM0:			JP      WARM
+			LD      HL,ACCS			; HL: Address of the filename
+			CALL    OSSAVE			; Call the SAVE routine in patch.asm
+WARM0:			JP      WARM			; Jump back to the command loop
 
 ;
 ; ERROR
@@ -922,7 +937,7 @@ ERROR2:			LD      HL,0
 			CALL    CRLF			; Output newline
 			JP      CLOOP			; Back to CLOOP
 ;
-;SUBROUTINES:
+; SUBROUTINES:
 ;
 ;LEX - SEARCH FOR KEYWORDS
 ;   Inputs: HL = start of keyword table
@@ -1069,85 +1084,117 @@ CLEAR1:			LD      (HL),0			; Clear the dynamic variable pointers
 ;LISTIT - LIST A PROGRAM LINE.
 ;    Inputs: HL addresses line
 ;            DE = line number (binary)
-;            IX addresses LISTON
+;            IX = Pointer to LISTON
+;             B = FOR/NEXT indent level
+;             C = REPEAT/UNTIL indent level 
 ;  Destroys: A,D,E,B',C',D',E',H',L',IY,F
 ;
-LISTIT:			PUSH    HL
-			EX      DE,HL
+LISTIT:			PUSH    HL			; Stack the address of the line
+			EX      DE,HL			; HL: Line number
 			PUSH    BC
-			CALL    PBCD
+			CALL    PBCD			; Print the line number
 			POP     BC
-			POP     HL
-			LD      A,(HL)
-			CP      NEXT
-			CALL    Z,INDENT
-			CP      UNTIL
-			CALL    Z,INDENT
+			POP     HL			; HL: Address of the first token/character
+			LD      A,(HL)			; Fetch the token
+			CP      NEXT			; Is it NEXT...
+			CALL    Z,INDENT		; Yes, so indent in
+			CP      UNTIL			; Or is it UNTIL...
+			CALL    Z,INDENT		; Yes, so indent in
 			EXX
 			LD      A,' '
-			BIT     0,(IX)
-			CALL    NZ,OUTCHR
-			LD      A,B
-			ADD     A,A
-			BIT     1,(IX)
-			CALL    NZ,FILL
-			LD      A,C
-			ADD     A,A
-			BIT     2,(IX)
-			CALL    NZ,FILL
+			BIT     0,(IX)			; If BIT 0 of LISTON is set
+			CALL    NZ,OUTCHR		; Then print a space after the line number
+			LD      A,B			; Fetch the FOR/NEXT indent level
+			ADD     A,A			; Multiply by 2
+			BIT     1,(IX)			; If BIT 1 of LISTON is set
+			CALL    NZ,FILL			; Then print the FOR/NEXT indent
+			LD      A,C			; Fetch the REPEAT/UNTIL indent level
+			ADD     A,A			; Multiply by 2
+			BIT     2,(IX)			; If BIT 2 of LISTON is set
+			CALL    NZ,FILL			; Then print the REPEAT/UNTIL indent
 			EXX
-			LD      A,(HL)
-			CP      FOR
-			CALL    Z,INDENT
-			CP      REPEAT
-			CALL    Z,INDENT
-			LD      E,0
-LIST8:			LD      A,(HL)
-			INC     HL
-			CP      CR
-			JR      Z,CRLF
-			CP      34		;ASCII ""
-			JR      NZ,LIST7
-			INC     E
-LIST7:			CALL    LOUT
-			JR      LIST8
+			LD      A,(HL)			; Fetch the token
+			CP      FOR			; Is it FOR?
+			CALL    Z,INDENT		; Yes, so indent
+			CP      REPEAT			; Is it REPEAT?
+			CALL    Z,INDENT		; Yes, so indent
+			LD      E,0			; E: The quote counter - reset to 0
+LIST8:			LD      A,(HL)			; Fetch a character / token byte
+			INC     HL			
+			CP      CR			; Is it end of line?
+			JR      Z,LISTE			; Yes, so finish (DB: Used to jump to CRLF, modified for *EDIT)
+			CP      34			; Is it a quote character?
+			JR      NZ,LIST7		; No, so skip to next bit
+			INC     E			; Otherwise increment quote counter
+LIST7:			CALL    LOUT			; Output the character / token
+			JR      LIST8			; And repeat
 ;
-PRLINO:			PUSH    HL
-			POP     IY
-			PUSH    BC
-			CALL    DECODE
+; DB: Modification for *EDIT
+; Terminate the line with either a CRLF or a NUL character
+; 
+LISTE:			BIT 	3,(IX)			; Are we printing to buffer?
+			JR	Z, CRLF			; Yes, so print a CRLF
+			XOR	A			; Otherwise print a NUL (0)
+			JP	OSWRCH
+;
+; Decode the 3 byte GOTO type line number
+;
+PRLINO:			PUSH    HL			; Swap HL and IY
+			POP     IY			; IY: Pointer to the line number
+			PUSH    BC		
+			CALL    DECODE			; Decode
 			POP     BC
 			EXX
 			PUSH    BC
-			CALL    PBCDL
+			CALL    PBCDL			; Output the line number
 			POP     BC
 			EXX
-			PUSH    IY
-			POP     HL
+			PUSH    IY			; Swap HL and IY
+			POP     HL			; HL: Pointer to the next character in the line
 			RET
 ;
-LOUT:			BIT     0,E
-			JR      NZ,OUTCHR
-			CP      LINO
-			JR      Z,PRLINO
-			CALL    OUT_
-			LD      A,(HL)
+; DB: Modification for internationalisation
+;
+PRREM:			CALL	OUT_			; Output the REM token
+$$:			LD	A, (HL)			; Fetch the character
+			CP	CR			; If it is end of line, then
+			RET	Z			; we have finished
+			CALL	OUTCHR			; Ouput the character
+			INC	HL			
+			JR	$B			; And loop		
+;
+; DB: End of modification
+;
+LOUT:			BIT     0,E			; If the quote counter is odd (bit 1 set) then
+			JR      NZ,OUTCHR		; don't tokenise, just output the character
+			CP	REM			; DB: Is it REM
+			JR	Z, PRREM		; DB: Yes so jump to the special case for REM
+			CP      LINO			; Is it a line number (following GOTO/GOSUB etc)?
+			JR      Z,PRLINO		; Yes, so decode and print the line number
+			CALL    OUT_			; Output a character / keyword
+			LD      A,(HL)			; Fetch the next character	
+;
+; This block of code handles the indentation
+; B: Counter for FOR/NEXT indent
+; C: Counter for REPEAT/UNTIL indent
+;
 INDENT:			EXX
-			CP      FOR
-			JR      Z,IND1
-			CP      NEXT
-			JR      NZ,IND2_
-			DEC     B
-			JP      P,IND2_
-IND1:			INC     B
-IND2_:			CP      REPEAT
-			JR      Z,IND3
-			CP      UNTIL
-			JR      NZ,IND4
-			DEC     C
-			JP      P,IND4
-IND3:			INC     C
-IND4:			EXX
+			CP      FOR			; If the token is FOR
+			JR      Z,IND1			; Then INC B
+			CP      NEXT			; If it is NEXT
+			JR      NZ,IND2_		; Then...
+			DEC     B			; DEC B
+			JP      P,IND2_			; If we have gone below 0 then
+IND1:			INC     B			; Increment back to 0
+;
+IND2_:			CP      REPEAT			; If the token is REPEAT
+			JR      Z,IND3			; Then INC C
+			CP      UNTIL			; If it is UNTIL
+			JR      NZ,IND4			; Then...
+			DEC     C			; DEC C
+			JP      P,IND4			; If we have gone below 0 then
+IND3:			INC     C			; Incremet back to 0
+IND4:			EXX		
 			RET
 ;
 ;CRLF - SEND CARRIAGE RETURN, LINE FEED.
@@ -1156,23 +1203,25 @@ IND4:			EXX
 ;    Inputs: A = character
 ;  Destroys: A,F
 ;
-CRLF:			LD      A,CR
+CRLF:			LD      A,CR			; Output CR
 			CALL    OUTCHR
-			LD      A,LF
-OUTCHR:		CALL    OSWRCH
-			SUB     CR
-			JR      Z,CARRET
-			RET     C               ;NON-PRINTING
-			LD      A,(COUNT)
+			LD      A,LF			; Output LF
+;
+OUTCHR:			CALL    OSWRCH			; Output the character in A
+			SUB     CR			; Check for CR
+			JR      Z,CARRET		; If it is CR then A will be 0, this will clear the count
+			RET     C              		; If it is less than CR, it is non-printing, so don't increment the count
+			LD      A,(COUNT)		; Increment the count
 			INC     A
-CARRET:			LD      (COUNT),A
-			RET     Z
-			PUSH    HL
-			LD      HL,(WIDTH)
-			CP      L
+;
+CARRET:			LD      (COUNT),A		; Store the new count value	
+			RET     Z			; Return if the count has wrapped to 0
+			PUSH    HL			; Now check if count = print width		
+			LD      HL,(WIDTH)		; Get the print width; it's a byte value, so
+			CP      L			; L is the width. Compare it with count.
 			POP     HL
-			RET     NZ
-			JR      CRLF
+			RET     NZ			; If we've not hit print width, then just return
+			JR      CRLF			; Otherwise output CRLF
 ;
 ;OUT - SEND CHARACTER OR KEYWORD
 ;   Inputs: A = character (>=10, <128)
@@ -1231,7 +1280,7 @@ FINDL1:			LD      C,(HL)
 ;  Outputs: Line number in HL and (LINENO)
 ; Destroys: B,C,D,E,H,L,F
 ;
-SETLIN:		LD      B,0
+SETLIN:			LD      B,0
 			LD      DE,(ERRLIN)
 			LD      HL,(PAGE_)
 			OR      A
@@ -1853,25 +1902,32 @@ ENCODE:			SET     4,C
 			EX      DE,HL
 			RET
 ;
-;TEXT - OUTPUT MESSAGE.
+; TEXT - OUTPUT MESSAGE.
 ;   Inputs: HL addresses text (terminated by nul)
 ;  Outputs: HL addresses character following nul.
 ; Destroys: A,H,L,F
 ;
-REPORT:			LD      HL,(ERRTXT)
-TEXT_:			LD      A,(HL)
-			INC     HL
-			OR      A
-			RET     Z
-			CALL    OUT_
-			JR      TEXT_
+REPORT:			LD      HL, (ERRTXT)		; Output an error message pointed to by ERRTXT
 ;
-;TELL - OUTPUT MESSAGE.
+TEXT_:			LD      A, (HL)			; Fetch the character
+			INC     HL			; Increment pointer to next character
+			OR      A			; Check for the nul (0) string terminator
+			RET     Z			; And return if so
+			CALL    OUT_			; Output the character; note that OUT_ will detokenise tokens
+			JR      TEXT_			; And loop
+;
+; TELL - OUTPUT MESSAGE.
 ;   Inputs: Text follows subroutine call (term=nul)
 ; Destroys: A,F
 ;
-TELL:			EX      (SP),HL         ;GET RETURN ADDRESS
-			CALL    TEXT_
-			EX      (SP),HL
-			RET
+; Example usage:
+;
+;	CALL	TELL			Call the function
+;	DB	"Hello World", 0	Followed by a zero terminated string
+;	LD	A, (1234H)		Program execution will carry on here after the message is output
+;
+TELL:			EX      (SP), HL		; Get the return address off the stack into HL, this is the
+			CALL    TEXT_			; first byte of the string that follows it. Print it, then
+			EX      (SP), HL		; HL will point to the next instruction, swap this back onto the stack	
+			RET				; at this point we'll return to the first instruction after the message
 ;
