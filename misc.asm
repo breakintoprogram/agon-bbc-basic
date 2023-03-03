@@ -2,13 +2,14 @@
 ; Title:	BBC Basic for AGON - Miscellaneous helper functions
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	11/01/2023
+; Last Updated:	26/02/2023
 ;
 ; Modinfo:
 ; 26/07/2022:	Added NULLTOCR and CRTONULL
 ; 28/09/2022:	Added CSTR_FNAME, BUF_DETOKEN, BUF_PBCDL
 ; 13/10/2022:	Added CSTR_LINE
 ; 11/01/2023:	Added CSTR_FINDCH. CSTR_ENDSWITH, CSTR_CAT
+; 26/02/2023:	Removed BUF_DETOKEN and BUF_PBCDL
 
 			INCLUDE	"equs.inc"
 			INCLUDE	"macros.inc"
@@ -26,8 +27,6 @@
 			XDEF	CSTR_FINDCH
 			XDEF	CSTR_ENDSWITH
 			XDEF	CSTR_CAT
-			XDEF	BUF_DETOKEN
-			XDEF	BUF_PBCDL
 				
 			XREF	OSWRCH
 			XREF	KEYWDS
@@ -232,61 +231,4 @@ CSTR_CAT_1:		LD	A, (DE)			; Copy the second string onto the end of the first str
 			RET	Z			; And return
 			INC	HL
 			INC	DE
-			JR	CSTR_CAT_1		; Loop until finished
-						
-; Detokenise a character into a buffer
-;  A: Character to detokenise
-; IX: Output buffer
-;
-BUF_DETOKEN:		CP      138
-			JP      PE,BUF_DETOKEN1
-			PUSH    BC
-			PUSH    HL
-			LD      HL,KEYWDS
-			LD      BC,KEYWDL
-			CPIR
-$$:			LD      A,(HL)
-			INC     HL
-			CP      138
-			PUSH    AF
-			CALL    PE,BUF_DETOKEN1
-			POP     AF
-			JP      PE,$B
-			POP     HL
-			POP     BC
-			RET	
-BUF_DETOKEN1:		LD	(IX),A
-			INC	IX
-			RET	
-
-; Print a number into a buffer
-; This is a modified version of PBCD in main.asm
-; HL: Number (binary)
-; IX: Buffer
-;
-BUF_PBCDL:		LD	BC,0500h		; C: Leading character (NUL), B: Number of digits in result
-			LD      DE,10000		; Start off with the 10,000 column
-BUF_PBCD1:		XOR     A			; Counter
-BUF_PBCD2:		SBC     HL,DE			; Loop and count how many 10,000s we have
-			INC     A
-			JR      NC,BUF_PBCD2		
-			ADD     HL,DE			; The loop overruns by one, so adjust here
-			DEC     A			; A: Number of 10,000s
-			JR      Z,BUF_PBCD3		; If it is 0, then skip the next bit
-			LD	C, '0'			; C: Set to '0'
-BUF_PBCD3:		OR      C			; A is then an ASCII character, or 00h if we've not processed any non-zero digits yet
-			JR	Z, $F			; If it is a leading NUL character then ignore
-			LD	(IX),A			; Store the character in the buffer
-			INC	IX			; Increment the buffer pointer
-$$:			LD	A, B			; If on first transition, skip this
-			CP	5			; TODO: Need to find out why 
-			JR	Z, BUF_PBCD4
-			ADD     HL,HL			; HL x  2 : We shift the number being tested left,
-			LD      D,H			;         : rrather than shifting DE right
-			LD      E,L			;         : This makes a lot of sense
-			ADD     HL,HL			; HL x  4
-			ADD     HL,HL			; HL x  8
-			ADD     HL,DE			; HL x 10
-BUF_PBCD4:		LD	DE, 1000		; Set the column heading to 1,000s for subsequent runs
-			DJNZ    BUF_PBCD1		; Loop until done
-			RET
+			JR	CSTR_CAT_1		; Loop until finished						
