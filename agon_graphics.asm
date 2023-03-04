@@ -2,12 +2,13 @@
 ; Title:	BBC Basic for AGON - Graphics stuff
 ; Author:	Dean Belfield
 ; Created:	07/08/2022
-; Last Updated:	23/02/2023
+; Last Updated:	04/03/2023
 ;
 ; Modinfo:
 ; 19/08/2022:	Added GETSCHR, POINT
 ; 15/02/2023:	Fixed COLOUR, GCOL
 ; 23/02/2023:	Fixed MODE
+; 04/03/2023:	Updated POINT to return colour index, not RGB
 
 			
 			.ASSUME	ADL = 0
@@ -126,18 +127,11 @@ POINT:			CALL    EXPRI      		; Get X coordinate
 $$:			BIT.LIL	2, (IX+sysvar_vpd_pflags)
 			JR	Z, $B			; Wait for the result
 ;
-; Return the data as a 3 byte number
-; &RRGGBB
+; Return the data as a 1 byte index
 ;
-			LD.LIL	H, (IX+(sysvar_scrpixel+1))	; G
-			LD.LIL	L, (IX+(sysvar_scrpixel+2))	; B
-			EXX
-			XOR     A
-			LD      C, A				; Integer marker
-			LD      H, 0				; 0
-			LD.LIL  L, (IX+(sysvar_scrpixel+0))	; R
+			LD.LIL	L, (IX+(sysvar_scrpixelIndex))
 			POP	IX	
-			RET
+			JP	COUNT0
 
 
 ; COLOUR colour
