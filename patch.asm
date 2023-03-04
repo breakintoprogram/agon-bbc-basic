@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	26/02/2023
+; Last Updated:	03/03/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -18,6 +18,7 @@
 ; 11/01/2023:	Added default .BBC extension to OSLOAD and OSSAVE, STAR_VERSION
 ; 15/02/2023:	Updated STAR_VERSION TO 1.04
 ; 26/02/2023:	Fixed STAR_EDIT to use LISTIT instead of duplicated code, added OSBYTE_A0, tweaked OSWRCH, SAVE and LOAD as text files
+; 03/03/2023:	Addd .BAS extension for LOAD/SAVE, improvements to OSLOAD_TXT
 			
 			.ASSUME	ADL = 0
 				
@@ -468,34 +469,52 @@ OSLOAD:			PUSH	BC			; Stack the size
 ;
 ; Load the file in as a text file
 ;
-OSLOAD_TXT:		PUSH	HL			; Store the filename poiner
-			CALL	NEWIT			; Call NEW
-			POP	HL
-			XOR	A			; Set file attributes to read
+OSLOAD_TXT:		XOR	A			; Set file attributes to read
 			CALL	OSOPEN			; Open the file			
 			LD 	E, A 			; The filehandle
 			OR	A
 			LD	A, 4			; File not found error
 			JR	Z, OSERROR		; Jump to error handler
-;			
-OSLOAD_TXT0:		LD	HL, ACCS 		; Where the input is going to be stored
-OSLOAD_TXT1:		CALL	OSBGET			; Get the byte
+			CALL	NEWIT			; Call NEW to clear the program space
+;
+OSLOAD_TXT1:		LD	HL, ACCS 		; Where the input is going to be stored
+;
+; First skip any whitespace (indents) at the beginning of the input
+;
+$$:			CALL	OSBGET			; Read the byte into A
+			CP	CR 			; Is it CR?
+			JR	Z, OSLOAD_TXT2 		; Yes, so skip to the next line
+			CP	21h			; Is it less than or equal to ASCII space?
+			JR	C, $B 			; Yes, so keep looping
+			LD	(HL), A 		; Store the first character
+			INC	L
+;
+; Now read the rest of the line in
+;
+$$:			CALL	OSBGET			; Read the byte into A
 			LD	(HL), A 		; Store in the input buffer			
 			INC	L
+			JP	Z, BAD			; If the buffer is full (wrapped to 0) then jump to Bad Program error
 			CP	CR			; Check for CR
-			JR	NZ, OSLOAD_TXT1		; If not, then loop to read the rest of the characters in
-			CALL	OSBGET			; Discard the LF
+			JR	NZ, $B 			; If not, then loop to read the rest of the characters in
+;
+; Finally, handle EOL/EOF
+;
+OSLOAD_TXT2:		CALL	OSBGET			; Check for LF
 			CP	LF			; If it is not LF
 			JP	NZ, BAD			; Then jump to Bad Program error
+			LD	A, L			; Check for minimum line length
+			CP	2			; If it is 2 characters or less (including CR)
+			JR	C, $F			; Then don't bother entering it
 			PUSH	DE			; Preserve the filehandle
 			CALL	ONEDIT1			; Enter the line in memory
 			CALL	CLEAN
 			POP	DE
-			CALL	OSSTAT			; End of file?
-			JR	NZ, OSLOAD_TXT0		; No, so loop
+$$:			CALL	OSSTAT			; End of file?
+			JR	NZ, OSLOAD_TXT1		; No, so loop
 			CALL	OSSHUT			; Close the file
 			SCF				; Flag to BASIC that we're good
-			RET			
+			RET
 ;
 ; Load the file in as a tokenised binary blob
 ;
@@ -622,11 +641,14 @@ EXT_HANDLER_2:		INC	DE			; Skip to the file extension # byte
 
 
 ; Extension lookup table
-; CSTR, Extension #
+; CSTR, TYPE
+; 	- 0: BBC (tokenised BBC BASIC for Z80 format)
+; 	- 1: Human readable plain text
 ;
-EXT_LOOKUP:		DB	'.BBC', 0, 0		; First is the default extension
+EXT_LOOKUP:		DB	'.BBC', 0, 0		; First entry is the default extension
 			DB	'.TXT', 0, 1
 			DB	'.ASC', 0, 1
+			DB	'.BAS', 0, 1
 			DB	0			; End of table
 			
 ;OSCALL - Intercept page &FF calls and provide an alternative address
