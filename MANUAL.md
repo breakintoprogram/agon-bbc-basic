@@ -94,7 +94,7 @@ If one parameter is passed:
 - If c is between 0 and 63, the foreground text colour will be set
 - If c is between 128 and 191, the background text colour will be set
 
-If three parameters are passed, and the mode is a paletted mode, then the colour c will be set to the passed rgb value
+If three parameters are passed, and the mode is a paletted mode, then the colour c will be set to the passed rgb value. Note that the AGON has four levels per component: 0x00, 0x55, 0xAA and 0xFF.
 
 Note that this requires VPD 1.03 or higher.
 
@@ -106,7 +106,7 @@ Note that this requires VPD 1.03 or higher.
 
 ### POINT(x,y)
 
-This returns the rgb value of the pixel as a 24-bit integer
+This returns the index of the colour at pixel position (x, y)
 
 ### PLOT mode,x,y
 
