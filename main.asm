@@ -111,6 +111,8 @@
 			XREF	NEWIT
 			XREF	BAD
 ;
+; A handful of common token IDs
+;
 TERROR:			EQU     85H
 LINE_:			EQU     86H
 ELSE_:			EQU     8BH
@@ -266,7 +268,7 @@ LNZERO:			LD      DE,BUFFER		; Buffer for tokenised BASIC
 			INC     DE
 			LD      (DE),A          	; Zero next
 			LD      HL,(LINENO)		; Get the line number
-			LD      A,H			; Is it zero?
+			LD      A,H			; Is it zero, i.e. a command with no line number?
 			OR      L
 			LD      IY,BUFFER       	; Yes, so we're in immediate mode
 			JP      Z,XEQ           	; Execute it
@@ -277,55 +279,55 @@ LNZERO:			LD      DE,BUFFER		; Buffer for tokenised BASIC
 			PUSH    HL
 			CALL    SETTOP          	; Set TOP sysvar
 			POP     HL
-			CALL    FINDL
-			CALL    Z,DEL
+			CALL    FINDL			; Find the address of the line
+			CALL    Z,DEL			; Delete the existing line if found
 			POP     BC
-			LD      A,C
-			OR      A
-			JP      Z,CLOOP         	; Delete line only
+			LD      A,C			; Check for the line length being zero, i.e.
+			OR      A			; the user has just entered a line number in the command line
+			JP      Z,CLOOP         	; If so, then don't do anything else
 			ADD     A,4
 			LD      C,A             	; Length inclusive
-			PUSH    DE              	; Line number
-			PUSH    BC              	; Save line length
-			EX      DE,HL
-			LD      HL,(TOP)
-			PUSH    HL
-			ADD     HL,BC
-			PUSH    HL
-			INC     H
+			PUSH    DE              	; DE: Line number (fetched from the call to FINDL)
+			PUSH    BC              	; BC: Line length
+			EX      DE,HL			; DE: Address of the line in memory
+			LD      HL,(TOP)		; HL: TOP (the first free location after the end of the BASIC program)
+			PUSH    HL			; Stack TOP (current TOP value)
+			ADD     HL,BC			; Add the line length to HL, the new TOP value
+			PUSH    HL			; Stack HL (new TOP value)
+			INC     H			; Add 256 to HL
 			XOR     A
-			SBC     HL,SP
-			POP     HL
-			JP      NC,ERROR_        	; Error: "No room"
-			LD      (TOP),HL
-			EX      (SP),HL
-			PUSH    HL
-			INC     HL
+			SBC     HL,SP			; Check whether HL is in the same page as the current stack pointer
+			POP     HL			; Pop HL (new TOP value)
+			JP      NC,ERROR_        	; If HL is in the stack page, then error: "No room"
+			LD      (TOP),HL		; Store new value of TOP
+			EX      (SP),HL			; HL: TOP (current TOP value), top of stack now contains new TOP value
+			PUSH    HL			; PUSH current TOP value
+			INC     HL			
 			OR      A
-			SBC     HL,DE
+			SBC     HL,DE			; DE: Address of the line in memory 
 			LD      B,H             	; BC: Amount to move
 			LD      C,L
-			POP     HL
-			POP     DE
-			JR      Z,ATEND
-			LDDR                    	; Make space
-ATEND:			POP     BC              	; Line length
-			POP     DE              	; Line number
-			INC     HL
+			POP     HL			; HL: Destination (current TOP value)
+			POP     DE			; DE: Source (new TOP value)
+			JR      Z,ATEND			; If current TOP and new TOP are the same, i.e. adding a line at the end, then skip...		
+			LDDR                    	; Otherwise, make space for the new line in the program
+ATEND:			POP     BC              	; BC: Line length
+			POP     DE              	; DE: Line number
+			INC     HL			; HL: Destination address
 			LD      (HL),C          	; Store length
 			INC     HL
 			LD      (HL),E          	; Store line number
 			INC     HL
 			LD      (HL),D
 			INC     HL
-			LD      DE,BUFFER
-			EX      DE,HL
-			DEC     C
-			DEC     C
-			DEC     C
-			LDIR                    	; Add line
+			LD      DE,BUFFER		; DE: Location of the new, tokenised line
+			EX      DE,HL			; HL: Location of the new, tokensied line, DE: Destination address in BASIC program
+			DEC     C			; Subtract 3 from the number of bytes to copy to
+			DEC     C			; compensate for the 3 bytes stored above (length and line number)
+			DEC     C	
+			LDIR                    	; Add the line to the BASIC program
 			RET
-;;
+;
 ; List of tokens and keywords. If a keyword is followed by 0 then
 ; it will only match with the keyword followed immediately by
 ; a delimiter
@@ -519,7 +521,7 @@ ERRWDS:			DB    7, 'room', 0		;  0: No room
 			DB    2, 'line', 0		; 41: No such line
 			DB    6, ' ', DATA_, 0		; 42: Out of DATA
 			DB    7, REPEAT, 0		; 43: No REPEAT
-			DB    0				; 44 *
+			DB    0				; 44: *
 			DB    1, '#', 0			; 45: Missing #
 ;
 ; COMMANDS:
@@ -678,141 +680,161 @@ WARMNC:			JP      NC,WARM			; If exceeded the terminating line number then jump 
 ; RENUMBER start,increment
 ; RENUMBER ,increment
 ;
-RENUM:			CALL    CLEAR           	; Uses the dynamic area
-			CALL    PAIR            	; LOAD HL,BC
+RENUM:			CALL    CLEAR           	; Uses the heap so clear all dynamic variables and function/procedure pointers
+			CALL    PAIR            	; Fetch the parameters - HL: start (NEW line number), BC: increment
 			EXX
-			LD      HL,(PAGE_)
-			LD      DE,(LOMEM)
-RENUM1:			LD      A,(HL)          ;BUILD TABLE
-			OR      A
-			JR      Z,RENUM2
-			INC     HL
-			LD      C,(HL)          ;OLD LINE NUMBER
+			LD      HL,(PAGE_)		; HL: Top of program
+			LD      DE,(LOMEM)		; DE: Start address of the heap
+;
+; Build the table
+;
+RENUM1:			LD      A,(HL)          	; Fetch the line length byte
+			OR      A			; Is it zero, i.e. the end of program marker?
+			JR      Z,RENUM2		; Yes, so skip to the next part
+			INC     HL			
+			LD      C,(HL)          	; BC: The OLD line number
 			INC     HL
 			LD      B,(HL)
 			LD      A,B
 			OR      C
-			JP      Z,CLOOP         ;LINE NUMBER ZERO
-			EX      DE,HL
-			LD      (HL),C
+			JP      Z,CLOOP        		; If the line number is zero, then exit back to the command line
+			EX      DE,HL			; DE: Pointer to BASIC program, HL: Pointer to heap
+			LD      (HL),C			; Store the OLD line number in the heap
 			INC     HL
 			LD      (HL),B
 			INC     HL
-			EXX
-			PUSH    HL
-			ADD     HL,BC           ;ADD INCREMENT
-			JP      C,TOOBIG        ;"Too big"
-			EXX
-			POP     BC
-			LD      (HL),C
+			EXX				; HL: line number, BC: increment			
+			PUSH    HL			; HL: Stack the NEW line number value
+			ADD     HL,BC           	; Add the increment
+			JP      C,TOOBIG        	; If > 65535, then error: "Too big"
+			EXX				; DE: Pointer to BASIC program, HL: Pointer to heap
+			POP     BC			; BC: Pop the NEW line number value off the stack
+			LD      (HL),C			; Store the NEW line number in the heap
 			INC     HL
 			LD      (HL),B
 			INC     HL
-			EX      DE,HL
+			EX      DE,HL			; HL: Pointer to BASIC program, DE: Pointer to heap
+			DEC     HL			; Back up to the line length byte
 			DEC     HL
-			DEC     HL
-			XOR     A
-			LD      B,A
+			XOR     A			; Not sure why this is done here instead of LD B,0
+			LD      B,A			; BC: Line length
 			LD      C,(HL)
-			ADD     HL,BC           ;NEXT LINE
-			EX      DE,HL
+			ADD     HL,BC           	; Advance HL to next line
+			EX      DE,HL			; DE: Pointer to BASIC program, HL: Pointer to heap
 			PUSH    HL
-			INC     H
-			SBC     HL,SP
-			POP     HL
-			EX      DE,HL
-			JR      C,RENUM1        ;CONTINUE
-			CALL    EXTERR          ;"RENUMBER space'
-			DB    REN
-			DB    8
-			DB    0
+			INC     H			; Increment to next page
+			SBC     HL,SP			; Subtract from SP
+			POP     HL			
+			EX      DE, HL			; HL: Pointer to BASIC program, DE: Pointer to heap
+			JR      C,RENUM1        	; Loop, as the heap pointer has not strayed into the stack page
+			CALL    EXTERR          	; Otherwise throw error: "RENUMBER space'
+			DB    	REN
+			DB    	8
+			DB    	0
 ;
-RENUM2:			EX      DE,HL
-			LD      (HL),-1
+; At this point a list of BASIC line numbers have been written to the heap
+; as word pairs:
+; - DW: The OLD line number
+; - DW: The NEW line number
+;
+RENUM2:			EX      DE,HL			; HL: Pointer to the end of the heap
+			LD      (HL),-1			; Mark the end with FFFFh
 			INC     HL
 			LD      (HL),-1
-			LD      DE,(LOMEM)
-			EXX
-			LD      HL,(PAGE_)
-RENUM3:			LD      C,(HL)
-			LD      A,C
+			LD      DE,(LOMEM)		; DE: Pointer to the start of the heap
+			EXX				
+			LD      HL,(PAGE_)		; HL: Start of the BASIC program area
+RENUM3:			LD      C,(HL)			; Fetch the first line length byte
+			LD      A,C			; If it is zero, then no program, so...
 			OR      A
-			JP      Z,WARM
-			EXX
-			EX      DE,HL
+			JP      Z,WARM			; Jump to warm start
+			EXX				; HL: Pointer to end of heap, DE: Pointer to start of heap
+			EX      DE,HL			; DE: Pointer to end of heap, HL: Pointer to start of heap
+			INC     HL			; Skip to the NEW line number	
 			INC     HL
-			INC     HL
-			LD      E,(HL)
+			LD      E,(HL)			; DE: The NEW line number
 			INC     HL
 			LD      D,(HL)
 			INC     HL
-			PUSH    DE
-			EX      DE,HL
-			LD      (LINENO),HL
-			EXX
-			POP     DE
+			PUSH    DE			; Stack the NEW line number
+			EX      DE,HL			; HL: The NEW line number, DE: Pointer to the end of heap
+			LD      (LINENO),HL		; Store the line number in LINENO
+			EXX				; HL: Pointer to the BASIC program area
+			POP     DE			; DE: The NEW line number
 			INC     HL
-			LD      (HL),E          ;NEW LINE NUMBER
+			LD      (HL),E          	; Write out the NEW line number to the BASIC program
 			INC     HL
 			LD      (HL),D
 			INC     HL
+			DEC     C			; Subtract 3 from the line length to compensate for increasing HL by 3 above
 			DEC     C
 			DEC     C
-			DEC     C
-			LD      B,0
-RENUM7:			LD      A,LINO
-			CPIR                    ;SEARCH FOR LINE NUMBER
-			JR      NZ,RENUM3
-			PUSH    BC
+			LD      B,0			; BC: Line length
+;
+RENUM7:			LD      A,LINO			; A: The token code that precedes any line number encoded in BASIC (i.e. GOTO/GOSUB)
+			CPIR                    	; Search for the token
+			JR      NZ,RENUM3		; If not found, then loop to process the next line
+;
+; Having established this line contains at least one encoded line number, we need to update it to point to the new line number
+;
+			PUSH    BC			; Stack everything
 			PUSH    HL
-			PUSH    HL
-			POP     IY
-			EXX
-			CALL    DECODE          ;DECODE LINE NUMBER
-			EXX
-			LD      B,H
+			PUSH    HL			; HL: Pointer to encoded line number
+			POP     IY			; IY: Pointer to encoded line number
+			EXX				 
+			CALL    DECODE			; Decode the encoded line number (in HL')
+			EXX				; HL: Decoded line number
+			LD      B,H			; BC: Decoded line number
 			LD      C,L
-			LD      HL,(LOMEM)
-RENUM4:			LD      E,(HL)          ;CROSS-REFERENCE TABLE
+			LD      HL,(LOMEM)		; HL: Pointer to heap
+;
+; This section of code cross-references the decoded (OLD) line number with the list
+; created previously in the global heap
+;
+RENUM4:			LD      E,(HL)          	; DE: The OLD line number
 			INC     HL
 			LD      D,(HL)
 			INC     HL
-			EX      DE,HL
-			OR      A               ;CLEAR CARRY
-			SBC     HL,BC
-			EX      DE,HL
-			LD      E,(HL)          ;NEW NUMBER
+			EX      DE,HL			; HL: The OLD line number, DE: Pointer in the global heap
+			OR      A               	; Clear the carry and...
+			SBC     HL,BC			; Compare by means of subtraction the OLD line number against the one in the heap
+			EX      DE,HL			; HL: Pointer in the global heap
+			LD      E,(HL)          	; DE: The NEW line number
 			INC     HL
 			LD      D,(HL)
 			INC     HL
-			JR      C,RENUM4
-			EX      DE,HL
-			JR      Z,RENUM5        ;FOUND
-			CALL    TELL
-			DB    'Failed at '
-			DB    0
+			JR      C,RENUM4		; Loop until there is a match (Z) or not (NC)
+			EX      DE,HL			; DE: Pointer in the global heap
+			JR      Z,RENUM5        	; If Z flag is set, there is an exact match to the decoded line number on the heap
+;
+			CALL    TELL			; Display this error if the line number is not found
+			DB    	'Failed at '
+			DB    	0
 			LD      HL,(LINENO)
 			CALL    PBCDL
 			CALL    CRLF
-			JR      RENUM6
-RENUM5:			POP     DE
+			JR      RENUM6			; And carry on renumbering
+;
+; This snippet re-encodes the line number in the BASIC program
+;
+RENUM5:			POP     DE			; DE: Pointer to the encoded line number in the listing
 			PUSH    DE
-			DEC     DE
-			CALL    ENCODE          ;RE-WRITE NUMBER
-RENUM6:			POP     HL
-			POP     BC
-			JR      RENUM7
+			DEC     DE			; Back up a byte to the LINO token
+			CALL    ENCODE          	; Re-write the new line number out
+RENUM6:			POP     HL			; HL: Pointer to the encoded line number in the listing
+			POP     BC			; BC: The remaining line length
+			JR      RENUM7			; Carry on checking for any more encoded line numbers in this line
 ;
 ; AUTO
 ; AUTO start,increment
 ; AUTO start
 ; AUTO ,increment
 ;
-AUTO:			CALL    PAIR
-			LD      (AUTONO),HL
-			LD      A,C
-			LD      (INCREM),A
-			JR      CLOOP0
+AUTO:			CALL    PAIR			; Get the parameter pair (HL: first parameter, BC: second parameter)
+			LD      (AUTONO),HL		; Store the start in AUTONO
+			LD      A,C			; Increment is 8 bit (0-255)
+			LD      (INCREM),A		; Store that in INCREM
+			JR      CLOOP0			; Jump back indirectly to the command loop via CLOOP0 (optimisation for size)
 ;
 ; BAD
 ; NEW
@@ -825,7 +847,7 @@ BAD:			CALL    TELL            	; Output "Bad program" error
 			DB    0				; Falls through to NEW	
 ;
 NEW:			CALL    NEWIT			; Call NEWIT (clears program area and variables)
-			JR      CLOOP0			; And jump back to the command line	
+			JR      CLOOP0			; Jump back indirectly to the command loop via CLOOP0 (optimisation for size)	
 ;
 ; OLD
 ;
@@ -939,7 +961,7 @@ ERROR2:			LD      HL,0
 ;
 ; SUBROUTINES:
 ;
-;LEX - SEARCH FOR KEYWORDS
+; LEX - SEARCH FOR KEYWORDS
 ;   Inputs: HL = start of keyword table
 ;           IY = start of match text
 ;  Outputs: If found, Z-flag set, A=token.
@@ -981,26 +1003,29 @@ LEX6:			POP     AF
 			LD      A,B
 			RET
 ;
-;DEL - DELETE A PROGRAM LINE.
+; DEL - DELETE A PROGRAM LINE.
 ;   Inputs: HL addresses program line.
 ; Destroys: B,C,F
 ;
+; This simply erases the line by moving all of the code after the line to be deleted back over
+; it using an LDIR
+;
 DEL:			PUSH    DE
 			PUSH    HL
-			PUSH    HL
-			LD      B,0
+			PUSH    HL			; HL: Address of the program line
+			LD      B,0			; BC: Length of the line
 			LD      C,(HL)
-			ADD     HL,BC
+			ADD     HL,BC			; HL: Advanced to the start of the next line
 			PUSH    HL
-			EX      DE,HL
-			LD      HL,(TOP)
-			SBC     HL,DE
-			LD      B,H
+			EX      DE,HL			; DE: Pointer to the next line
+			LD      HL,(TOP)		; HL: Pointer to the end of the program
+			SBC     HL,DE			
+			LD      B,H			; BC: Size of block to move
 			LD      C,L
-			POP     HL
-			POP     DE
-			LDIR                    ;DELETE LINE
-			LD      (TOP),DE
+			POP     HL			; HL: Pointer to next line
+			POP     DE			; DE: Pointer to this line
+			LDIR                    	; Delete the line
+			LD      (TOP),DE		; Adjust TOP
 			POP     HL
 			POP     DE
 			RET
@@ -1056,10 +1081,10 @@ SETOP2:			INC     HL             		; Skip the 3 byte end of program marker (&00,
 			LD      (TOP),HL		; Store in TOP sysvar
 			RET
 ;
-;NEWIT - NEW PROGRAM THEN CLEAR
+; NEWIT - NEW PROGRAM THEN CLEAR
 ;   Destroys: H,L
 ;
-;CLEAR - CLEAR ALL DYNAMIC VARIABLES INCLUDING
+; CLEAR - CLEAR ALL DYNAMIC VARIABLES INCLUDING
 ; FUNCTION AND PROCEDURE POINTERS.
 ;   Destroys: Nothing
 ;
@@ -1223,88 +1248,107 @@ CARRET:			LD      (COUNT),A		; Store the new count value
 			RET     NZ			; If we've not hit print width, then just return
 			JR      CRLF			; Otherwise output CRLF
 ;
-;OUT - SEND CHARACTER OR KEYWORD
+; OUT - SEND CHARACTER OR KEYWORD
 ;   Inputs: A = character (>=10, <128)
 ;           A = Token (<10, >=128)
 ;  Destroys: A,F
 ;
-OUT_:			CP      138
-			JP      PE,OUTCHR
-			PUSH    BC
+OUT_:			CP      138			; Neat trick to do condition: If A >= 10 or < 128 then PE flag is set
+			JP      PE,OUTCHR		; If so, then it's a character, so just output it
+;
+; This bit looks up the character in the KEYWDS token table and expands it
+; Note the CP 138; this sets the overflow flag as follows:
+;
+; NB:
+;  1. Any 8-bit number between 128 and 255 is negative (two's complement) so 138 is -118, 128 = -128
+;  2. CP is effectively a SUB; sets the flags without affecting A
+;  3. The operation n - -118 ~ n + 118
+;
+; So:
+;  *   9 CP 138 ~    9 + 118 = 127 = no overflow : token
+;  *  10 CP 138 ~   10 + 118 = 128 =    overflow : character
+;  * 127 CP 138 ~  127 + 118 = 245 =    overflow : character
+;  * 128 CP 138 ~ -128 + 118 = -10 = no overflow : token
+;
+			PUSH    BC			; Preserve BC and HL
 			PUSH    HL
-			LD      HL,KEYWDS
-			LD      BC,KEYWDL
-			CPIR
-TOKEN1:			LD      A,(HL)
-			INC     HL
-			CP      138
-			PUSH    AF
-			CALL    PE,OUTCHR
-			POP     AF
-			JP      PE,TOKEN1
-			POP     HL
+			LD      HL,KEYWDS		; The list of tokens and keywords
+			LD      BC,KEYWDL		; The length of the keyword list
+			CPIR				; We can just do a straight CPIR as the token characters are unique in the list
+;							; At this point HL points to the next byte, the first character of the token
+TOKEN1:			LD      A,(HL)			; Fetch the character
+			INC     HL			; Increment to the next byte in the token table
+			CP      138			; If A >= 10 or < 128, i.e. we've not hit the token code for the next token
+			PUSH    AF			; Then...
+			CALL    PE,OUTCHR		; Output the character...
+			POP     AF			; 
+			JP      PE,TOKEN1		; And loop to the next character 
+			POP     HL			; Done, so tidy up the stack and exit
 			POP     BC
 			RET
 ;
-;FINDL - FIND PROGRAM LINE.
+; FINDL - FIND PROGRAM LINE
 ;   Inputs: HL = line number (binary)
 ;  Outputs: HL addresses line (if found)
 ;           DE = line number
 ;           Z-flag set if found.
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-FINDL:			EX      DE,HL
-			LD      HL,(PAGE_)
-			XOR     A               ;A=0
-			CP      (HL)
-			INC     A
-			RET     NC
-			XOR     A               ;CLEAR CARRY
-			LD      B,A
-FINDL1:			LD      C,(HL)
-			PUSH    HL
-			INC     HL
-			LD      A,(HL)
+FINDL:			EX      DE,HL			; DE: Line number (binary)
+			LD      HL,(PAGE_)		; HL: Top of BASIC program area
+			XOR     A               	;  A: 0
+			CP      (HL)			; Check for end of program marker
+			INC     A			;  A: 1
+			RET     NC			; Return with 1 if 0 
+			XOR     A               	; Clear the carry flag
+			LD      B,A			;  B: 0
+;
+FINDL1:			LD      C,(HL)			;  C: The line length
+			PUSH    HL			; Stack the current program counter
+			INC     HL			; Skip to the line number bytes
+			LD      A,(HL)			; Fetch the line number (in binary) from the BASIC line in HL
 			INC     HL
 			LD      H,(HL)
 			LD      L,A
-			SBC     HL,DE
-			POP     HL
-			RET     NC              ;FOUND OR PAST
-			ADD     HL,BC
-			JP      FINDL1
+			SBC     HL,DE			; Compare with the line number we're searching for
+			POP     HL			; Get the current program counter
+			RET     NC              	; Then return if found or past (Z flag will be set if line number matches)
+			ADD     HL,BC			; Skip to the next line (B was set to 0 before the loop was entered)
+			JP      FINDL1			; And loop
 ;
-;SETLIN - Search program for line containing address.
-;         Update (LINENO).
+; SETLIN - Search program for line containing address
+;          Update (LINENO)
 ;   Inputs: Address in (ERRLIN)
 ;  Outputs: Line number in HL and (LINENO)
 ; Destroys: B,C,D,E,H,L,F
 ;
-SETLIN:			LD      B,0
-			LD      DE,(ERRLIN)
-			LD      HL,(PAGE_)
-			OR      A
-			SBC     HL,DE
-			ADD     HL,DE
-			JR      NC,SET3
-SET1:			LD      C,(HL)
-			INC     C
-			DEC     C
-			JR      Z,SET3
-			ADD     HL,BC
-			SBC     HL,DE
-			ADD     HL,DE
-			JR      C,SET1
-			SBC     HL,BC
+SETLIN:			LD      B, 0			; Zero B for later
+			LD      DE, (ERRLIN)		; DE: Address of line
+			LD      HL, (PAGE_)		; HL: Start of user program area
+			OR      A			; Do a 16 bit compare without destroying HL
+			SBC     HL, DE			;  Z: DE = HL, NC: DE <= HL
+			ADD     HL, DE			;  C: DE > HL
+			JR      NC, SET3		; So skip, as the address is less than or equal to the top of program area
+;
+SET1:			LD      C, (HL)			; Get the length of the line; zero indicates the end of the BASIC program
+			INC     C			; This is a way to check for zero without using the accumulator
+			DEC     C			; If it is zero, then...
+			JR      Z, SET3			; We've reached the end of the current BASIC program, not found the line
+			ADD     HL, BC			; Skip to the next line (we set B to 0 at the top of this subroutine)
+			SBC     HL, DE			; Do a 16-bit compare; the previous ADD will have cleared the carry flag
+			ADD     HL, DE			
+			JR      C, SET1			; Loop whilst DE (the address to search for) is > HL (the current line)
+			SBC     HL, BC			; We've found it, so back up to the beginning of the line
+			INC     HL			; Skip the length counter
+			LD      E, (HL)          	; Fetch the line number
 			INC     HL
-			LD      E,(HL)          ;LINE NUMBER
-			INC     HL
-			LD      D,(HL)
-			EX      DE,HL
-SET2:			LD      (LINENO),HL
+			LD      D, (HL)
+			EX      DE, HL			; HL: The line number
+SET2:			LD      (LINENO), HL		; Store in the variable LINENO
 			RET
-SET3:			LD      HL,0
-			JR      SET2
+;
+SET3:			LD      HL, 0			; We've not found the line at this point so
+			JR      SET2			; Set LINENO to 0
 ;
 ;SAYLN - PRINT " at line nnnn" MESSAGE.
 ;  Outputs: Carry=0 if line number is zero.
@@ -1316,11 +1360,11 @@ SAYLN:			LD      HL,(LINENO)		; Get the LINENO sysvar
 			OR      L			
 			RET     Z			; Don't need to do anything; return with F:C set to 0
 			CALL    TELL			; Output the error message
-			DB    ' at line ',0		
+			DB    	' at line ', 0		
 PBCDL:			LD      C,0			; C: Leading character (NUL)
 			JR      PBCD0			; Output the line number; return with F:C set to 1
 ;
-;PBCD - PRINT NUMBER AS DECIMAL INTEGER.
+; PBCD - PRINT NUMBER AS DECIMAL INTEGER.
 ;   Inputs: HL = number (binary).
 ;  Outputs: Carry = 1
 ; Destroys: A,B,C,D,E,H,L,F
@@ -1644,36 +1688,49 @@ LOC9:			LD      (HL),0          ;INITIALISE TO ZERO
 			XOR     A
 			RET
 ;
-;LINNUM - GET LINE NUMBER FROM TEXT STRING
+; LINNUM - GET LINE NUMBER FROM TEXT STRING
 ;   Inputs: IY = Text Pointer
 ;  Outputs: HL = Line number (zero if none)
 ;           IY updated
 ; Destroys: A,D,E,H,L,IY,F
 ;
-LINNUM:			CALL    NXT
-			LD      HL,0
-LINNM1:			LD      A,(IY)
-			SUB     '0'
-			RET     C
-			CP      10
-			RET     NC
-			INC     IY
-			LD      D,H
-			LD      E,L
-			ADD     HL,HL           ;*2
+; This bit of code performs a BASE 10 shift to build up the number
+; So if the string passed is "345", the algorithm does this:
+;
+;    HL : Digit	: Operation
+; ----- : ----- : ---------
+; 00000 :	:
+; 00003 :     3	: Multiply HL  (0) by 10   (0) and add 3   (3)
+; 00034 :     4 : Multiply HL  (3) by 10  (30) and add 4  (34)
+; 00345 :     5	: Multiply HL (34) by 10 (340) and add 5 (345)
+;
+; The multiply by 10 is done by an unrolled shift and add loop
+;
+LINNUM:			CALL    NXT			; Skip whitespace to the first character
+			LD      HL,0			; The running total
+LINNM1:			LD      A,(IY)			; A: Fetch the digit to add in
+			SUB     '0'			; Sub ASCII '0' to make a binary number (0-9)
+			RET     C			; And return if less than 0
+			CP      10			; Or greater than or equal to 10
+			RET     NC			; As we've hit a non-numeric character (end of number) at this point
+			INC     IY			; Increment the string pointer
+			LD      D,H			; This next block multiplys HL by 10, shifting the result left in BASE 10
+			LD      E,L			; Store the original number in DE
+			ADD     HL,HL           	; *2
+			JR      C,TOOBIG		; At each point, error if > 65535 (carry flag set)
+			ADD     HL,HL           	; *4
 			JR      C,TOOBIG
-			ADD     HL,HL           ;*4
+			ADD     HL,DE           	; *5
+			JR      C,TOOBIG	
+			ADD     HL,HL           	; *10
 			JR      C,TOOBIG
-			ADD     HL,DE           ;*5
-			JR      C,TOOBIG
-			ADD     HL,HL           ;*10
-			JR      C,TOOBIG
-			LD      E,A
+			LD      E,A			; A->DE: the digit to add in
 			LD      D,0
-			ADD     HL,DE           ;ADD IN DIGIT
-			JR      NC,LINNM1       
+			ADD     HL,DE           	; Add in the digit to the running total
+			JR      NC,LINNM1       	; And if it is still <= 65535, loop
+;
 TOOBIG:			LD      A,20
-			JP      ERROR_           ;"Too big"
+			JP      ERROR_           	; Error: "Too big"
 ;
 ;PAIR - GET PAIR OF LINE NUMBERS FOR RENUMBER/AUTO.
 ;   Inputs: IY = text pointer
@@ -1867,39 +1924,47 @@ LIST1L:			EQU     $-LIST1
 			DB    ':'
 LIST2L:			EQU     $-LIST2
 ;
-;ENCODE - ENCODE LINE NUMBER INTO PSEUDO-BINARY FORM.
+; ENCODE - ENCODE LINE NUMBER INTO PSEUDO-BINARY FORM.
 ;   Inputs: HL=line number, DE=string pointer
 ;  Outputs: DE updated, BIT 4,C set.
-; Destroys: A,B,C,D,E,H,L,F
+; Destroys: A,B,C,D,E,F
 ;
-ENCODE:			SET     4,C
-			EX      DE,HL
-			LD      (HL),LINO
+; Thanks to Matt Godblot for this explanation (https://xania.org/200711/bbc-basic-line-number-format)
+;
+; The line number is spread over three bytes and kept in the range of normal ASCII values so the interpreter
+; can make this short cut in skipping to the non-ASCII token ELSE. The algorithm used splits the top two bits off
+; each of the two bytes of the 16-bit line number. These bits are combined (in binary as 00LlHh00),
+; exclusive-ORred with 0x54, and stored as the first byte of the 3-byte sequence. The remaining six bits of
+; each byte are then stored, in LO/HI order, ORred with 0x40.
+;
+ENCODE:			SET     4,C			; Set bit 4 of C (for lexical analysis - accept line number)
+			EX      DE, HL			; HL: string pointer, DE: line number
+			LD      (HL), LINO		; Store 8Dh first to flag next bytes as an encoded line number
 			INC     HL
-			LD      A,D
-			AND     0C0H
+			LD      A,D			; Get the high byte
+			AND     0C0H			; Get the top two bits	DD000000
+			RRCA				; Shift right		00DD0000
 			RRCA
+			LD      B,A			; Store in B
+			LD      A,E			; Get the low byte
+			AND     0C0H			; Get the top two bits	EE000000
+			OR      B			; Combine with D	EEDD0000
+			RRCA				; Shift right		00EEDD00
 			RRCA
-			LD      B,A
-			LD      A,E
-			AND     0C0H
-			OR      B
-			RRCA
-			RRCA
-			XOR     01010100B
-			LD      (HL),A
+			XOR     01010100B		; XOR with 54h
+			LD      (HL),A			; Store this as the second byte
 			INC     HL
-			LD      A,E
-			AND     3FH
-			OR      '@'
-			LD      (HL),A
+			LD      A,E			; Get the low byte
+			AND     3FH			; Strip the top two bits off
+			OR      '@'			; OR with 40h
+			LD      (HL),A			; Store
+			INC     HL		
+			LD      A,D			; Get the high byte
+			AND     3FH			; Strip the top two bits off
+			OR      '@'			; OR with 40h
+			LD      (HL),A			; Store
 			INC     HL
-			LD      A,D
-			AND     3FH
-			OR      '@'
-			LD      (HL),A
-			INC     HL
-			EX      DE,HL
+			EX      DE,HL			; DE: string pointer, HL: line number	
 			RET
 ;
 ; TEXT - OUTPUT MESSAGE.
