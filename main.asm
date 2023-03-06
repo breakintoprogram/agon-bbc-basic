@@ -137,9 +137,24 @@ RESTOR:			EQU     F7H
 TRACE:			EQU     FCH
 UNTIL:			EQU     FDH
 ;
-TOKLO:			EQU     8FH
-TOKHI:			EQU     93H
-OFFSET:			EQU     CFH-TOKLO
+; This defines the block of tokens that are pseudo-variables.
+; There are two versions of each token, a GET and a SET
+
+; Name  : GET : SET
+; ------:-----:----
+; PTR   : 8Fh : CFh 
+; PAGE  : 90h : D0h
+; TIME  : 91h : D1h
+; LOMEM : 92h : D2h
+; HIMEM : 93h : D3h
+;
+; Examples:
+;   LET A% = PAGE : REM This is the GET version
+;   PAGE = 40000  : REM This is the SET version
+;
+TOKLO:			EQU     8FH			; This defines the block of tokens that are pseudo-variables
+TOKHI:			EQU     93H			; PTR, PAGE, TIME, LOMEM, HIMEM
+OFFSET:			EQU     CFH-TOKLO		; Offset to the parameterised SET versions
 
 ; The main routine
 ; IXU: argv - pointer to array of parameters
@@ -1732,87 +1747,101 @@ LINNM1:			LD      A,(IY)			; A: Fetch the digit to add in
 TOOBIG:			LD      A,20
 			JP      ERROR_           	; Error: "Too big"
 ;
-;PAIR - GET PAIR OF LINE NUMBERS FOR RENUMBER/AUTO.
+; PAIR - GET PAIR OF LINE NUMBERS FOR RENUMBER/AUTO.
 ;   Inputs: IY = text pointer
 ;  Outputs: HL = first number (10 by default)
 ;           BC = second number (10 by default)
 ; Destroys: A,B,C,D,E,H,L,B',C',D',E',H',L',IY,F
 ;
-PAIR:			CALL    LINNUM          ;FIRST
-			LD      A,H
+PAIR:			CALL    LINNUM          	; Parse the first line number
+			LD      A,H			; If it is not zero, then...
 			OR      L
-			JR      NZ,PAIR1
-			LD      L,10
-PAIR1:			CALL    TERMQ
-			INC     IY
-			PUSH    HL
-			LD      HL,10
-			CALL    NZ,LINNUM       ;SECOND
-			EX      (SP),HL
-			POP     BC
-			LD      A,B
-			OR      C
-			RET     NZ
-			CALL    EXTERR
-			DB    'Silly'
-			DB    0
+			JR      NZ,PAIR1		; Skip...
+			LD      L,10			; HL: the default value (10)
 ;
-;DLPAIR - GET PAIR OF LINE NUMBERS FOR DELETE/LIST.
+PAIR1:			CALL    TERMQ			; Check for ELSE, : or CR
+			INC     IY			; Skip to next character
+			PUSH    HL			; Stack the first line number
+			LD      HL,10			; HL: the second default (10)
+			CALL    NZ,LINNUM       	; Parse the second line number
+			EX      (SP),HL			; HL: The first line number (off the stack)
+			POP     BC			; BC: Second line number
+			LD      A,B			; If the second line number is not zero then...
+			OR      C			; We're good...
+			RET     NZ			; Exit, otherwise...
+			CALL    EXTERR			; Throw error: "Silly"
+			DB    	'Silly', 0
+;
+; DLPAIR - GET PAIR OF LINE NUMBERS FOR DELETE/LIST.
 ;   Inputs: IY = text pointer
 ;  Outputs: HL = points to program text
 ;           BC = second number (0 by default)
 ; Destroys: A,B,C,D,E,H,L,IY,F
 ;
-DLPAIR:			CALL    LINNUM
-			PUSH    HL
-			CALL    TERMQ
-			JR      Z,DLP1
-			CP      TIF
-			JR      Z,DLP1
-			INC     IY
-			CALL    LINNUM
-DLP1:			EX      (SP),HL
-			CALL    FINDL
-			POP     BC
+DLPAIR:			CALL    LINNUM			; Parse the first line number
+			PUSH    HL			; Stack it
+			CALL    TERMQ			; Check for ELSE, : or CR
+			JR      Z,DLP1			; And exit if so 
+			CP      TIF			; Is the token IF?
+			JR      Z,DLP1			; Yes, so skip the next bit...
+			INC     IY			; Otherwise...
+			CALL    LINNUM			; Fetch the second line number
+DLP1:			EX      (SP),HL			; HL: The first line number (off the stack)
+			CALL    FINDL			; HL: Find the address of the line
+			POP     BC			; BC: The second number
 			RET
 ;
-;TEST FOR VALID CHARACTER IN VARIABLE NAME:
+; TEST FOR VALID CHARACTER IN VARIABLE NAME:
 ;   Inputs: IY addresses character
 ;  Outputs: Carry set if out-of-range.
 ; Destroys: A,F
 ;
-RANGE:			LD      A,(IY)
-			CP      '$'
+; It is called here to check the following
+; In range: "$", "%" and "("
+;   Plus all characters in RANGE1 and RANGE2
+;
+RANGE:			LD      A,(IY)			; Fetch the character
+			CP      '$'			; Postfix for string variable is valid
 			RET     Z
-			CP      '%'
+			CP      '%'			; Postfix for integer variable is valid
 			RET     Z
-			CP      '('
+			CP      '('			; Postfix for array is valid
 			RET     Z
-RANGE1:			CP      '0'
-			RET     C
-			CP      '9'+1
+;
+; It is called here to check the following
+; In range: "0" to "9" and "@""
+;   Plus all characters in RANGE2
+;
+RANGE1:			CP      '0'			; If it is between '0'...
+			RET     C			 
+			CP      '9'+1			; And '9'...
 			CCF
-			RET     NC
-			CP      '@'             ;V2.4
+			RET     NC			; Then it is valid
+			CP      '@'             	; The prefix @ is valid (@% controls numeric print formatting - v2.4)
 			RET     Z
-RANGE2:			CP      'A'
+;
+; It is called here to check the following
+; In range: "A" to "Z", "a' to "z", "_" and "`"
+;	
+RANGE2:			CP      'A'			; If it is between 'A'...
 			RET     C
-			CP      'Z'+1
+			CP      'Z'+1			; And 'Z'...
 			CCF
-			RET     NC
-			CP      '_'
+			RET     NC			; Then it is valid
+			CP      '_'			; If it is underscore, grave, or between 'a'
 			RET     C
-			CP      'z'+1
-			CCF
+			CP      'z'+1			; And 'z'
+			CCF				; Then it is valid
 			RET
 ;
-SPACE_: 	XOR     A
-			CALL    EXTERR          ;"LINE space"
-			DB    LINE_
-			DB    8
-			DB    0
+; Throw a 'LINE space' error (line too long)
+; This is called from LEXAN
 ;
-;LEXAN - LEXICAL ANALYSIS.
+SPACE_: 		XOR     A
+			CALL    EXTERR          	; "LINE space"
+			DB    	LINE_, 8, 0
+;
+; LEXAN - LEXICAL ANALYSIS.
 ;  Bit 0,C: 1=left, 0=right
 ;  Bit 3,C: 1=in HEX
 ;  Bit 4,C: 1=accept line number
@@ -1820,108 +1849,131 @@ SPACE_: 	XOR     A
 ;  Bit 6,C: 1=in REM, DATA, *
 ;  Bit 7,C: 1=in quotes
 ;   Inputs: IY addresses source string
-;           DE addresses destination string
-;           (must be page boundary)
-;           C  sets initial mode
+;           DE addresses destination string (must be page boundary)
+;            C sets initial mode
 ;  Outputs: DE, IY updated
-;           A holds carriage return
+;            A holds carriage return
 ;
-LEXAN1:			LD      (DE),A          ;TRANSFER TO BUFFER
-			INC     DE              ;INCREMENT POINTERS
-			INC     IY
-LEXAN2:			LD      A,E             ;MAIN ENTRY
-			CP      252             ;TEST LENGTH
-			JR      NC,SPACE_        ;LINE TOO LONG
-			LD      A,(IY)
-			CP      CR
-			RET     Z               ;END OF LINE
-			CALL    RANGE1
-			JR      NC,LEXAN3
-			RES     5,C             ;NOT IN VARIABLE
-			RES     3,C             ;NOT IN HEX
-LEXAN3:			CP      ' '
-			JR      Z,LEXAN1        ;PASS SPACES
-			CP      ','
-			JR      Z,LEXAN1        ;PASS COMMAS
-			CP      'G'
-			JR      C,LEXAN4
-			RES     3,C             ;NOT IN HEX
-LEXAN4:			CP      34		;ASCII ""
-			JR      NZ,LEXAN5
-			RL      C
-			CCF                     ;TOGGLE C7
-			RR      C
-LEXAN5:			BIT     4,C
-			JR      Z,LEXAN6
-			RES     4,C
-			PUSH    BC
+LEXAN1:			LD      (DE),A          	; Transfer to buffer
+			INC     DE              	; Increment the pointers
+			INC     IY			; And fall through to the main function
+;
+; This is the main entry point
+;
+LEXAN2:			LD      A,E             	; Destination buffer on page boundary, so E can be used as length
+			CP      252             	; If it is >= 252 bytes, then...
+			JR      NC,SPACE_        	; Throw a 'LINE space' error (line too long)
+			LD      A,(IY)			; Fetch character from source string
+			CP      CR			; If it is a CR
+			RET     Z               	; Then it is end of line; we're done parsing
+			CALL    RANGE1			; Is it alphanumeric, '@', '_' or '`'
+			JR      NC,LEXAN3		; Yes, so skip
+			RES     5,C             	; FLAG: NOT IN VARIABLE
+			RES     3,C             	; FLAG: NOT IN HEX
+;
+LEXAN3:			CP      ' '			; Ignore spaces
+			JR      Z,LEXAN1        	
+			CP      ','			; Ignore commas
+			JR      Z,LEXAN1 
+			CP      'G'			; If less then 'G'
+			JR      C,LEXAN4		; Yes, so skip
+			RES     3,C             	; FLAG: NOT IN HEX
+;
+LEXAN4:			CP      34			; Is it a quote character?
+			JR      NZ,LEXAN5		; No, so skip
+			RL      C			; Toggle bit 7 of C by shifting it into carry flag
+			CCF                     	; Toggle the carry
+			RR      C			; And then shifting it back into bit 7 of C
+;
+LEXAN5:			BIT     4,C			; Accept line number?
+			JR      Z,LEXAN6		; No, so skip
+			RES     4,C			; FLAG: DON'T ACCEPT LINE NUMBER
+			PUSH    BC			
 			PUSH    DE
-			CALL    LINNUM          ;GET LINE NUMBER
+			CALL    LINNUM         		; Parse the line number to HL
 			POP     DE
 			POP     BC
-			LD      A,H
+			LD      A,H			; If it is not zero
 			OR      L
-			CALL    NZ,ENCODE       ;ENCODE LINE NUMBER
-			JR      LEXAN2          ;CONTINUE
+			CALL    NZ,ENCODE       	; Then encode the line number HL to the destination (DE)
+			JR      LEXAN2          	; And loop
 ;
-LEXAN6:			DEC     C
-			JR      Z,LEXAN7        ;C=1 (LEFT)
-			INC     C
-			JR      NZ,LEXAN1
-			OR      A
-			CALL    P,LEX           ;TOKENISE IF POSS.
-			JR      LEXAN8
+LEXAN6:			DEC     C			; Check for C=1 (LEFT)
+			JR      Z,LEXAN7        	; If so, skip
+			INC     C			; Otherwise restore C
+			JR      NZ,LEXAN1		; If C was 0 (RIGHT) then...
+			OR      A			; Set the flags based on the character
+			CALL    P,LEX           	; Tokenise if A < 128
+			JR      LEXAN8			; And skip
 ;
-LEXAN7:			CP      '*'
-			JR      Z,LEXAN9
-			OR      A
-			CALL    P,LEX           ;TOKENISE IF POSS.
-			CP      TOKLO
-			JR      C,LEXAN8
-			CP      TOKHI+1
-			JR      NC,LEXAN8
-			ADD     A,OFFSET        ;LEFT VERSION
-LEXAN8:			CP      REM
-			JR      Z,LEXAN9
-			CP      DATA_
-			JR      NZ,LEXANA
-LEXAN9:			SET     6,C             ;QUIT TOKENISING
-LEXANA:			CP      FN
-			JR      Z,LEXANB
-			CP      PROC
-			JR      Z,LEXANB
-			CALL    RANGE2
-			JR      C,LEXANC
-LEXANB:			SET     5,C             ;IN VARIABLE/FN/PROC
-LEXANC:			CP      '&'
-			JR      NZ,LEXAND
-			SET     3,C             ;IN HEX
-LEXAND:			LD      HL,LIST1
-			PUSH    BC
-			LD      BC,LIST1L
-			CPIR
+; Processing the LEFT hand side here
+; 
+LEXAN7:			CP      '*'			; Is it a '*' (for star commands)
+			JR      Z,LEXAN9		; Yes, so skip to quit tokenising
+			OR      A			; Set the flags based on the character
+			CALL    P,LEX           	; Tokenise if A < 128
+;
+; This bit of code checks if the tokens are one of the pseudo-variables PTR, PAGE, TIME, LOMEM, HIMEM
+; These tokens are duplicate in the table with a GET version and a SET version offset by the define OFFSET (40h)
+; Examples:
+;   LET A% = PAGE : REM This is the GET version
+;   PAGE = 40000  : REM This is the SET version
+;
+			CP      TOKLO			; TOKLO is 8Fh
+			JR      C,LEXAN8		; If A is < 8Fh then skip to LEX8
+			CP      TOKHI+1			; TOKHI is 93h
+			JR      NC,LEXAN8		; If A is >= 94h then skip to LEX8
+			ADD     A,OFFSET       		; Add OFFSET (40h) to make the token the SET version
+;
+LEXAN8:			CP      REM			; If the token is REM
+			JR      Z,LEXAN9		; Then stop tokenising
+			CP      DATA_			; If it is not DATA then
+			JR      NZ,LEXANA		; Skip
+LEXAN9:			SET     6,C             	; FLAG: STOP TOKENISING
+;
+LEXANA:			CP      FN			; If the token is FN
+			JR      Z,LEXANB		
+			CP      PROC			; Or the token is PROC
+			JR      Z,LEXANB		; Then jump to here
+			CALL    RANGE2			; Otherwise check the input is alphanumeric, "_" or "`"
+			JR      C,LEXANC		; Jump here if out of range
+;
+LEXANB:			SET     5,C             	; FLAG: IN VARIABLE/FN/PROC
+LEXANC:			CP      '&'			; Check for hex prefix
+			JR      NZ,LEXAND		; If not, skip
+			SET     3,C             	; FLAG: IN HEX
+;
+LEXAND:			LD      HL,LIST1		; List of tokens that must be followed by a line number	
+			PUSH    BC			
+			LD      BC,LIST1L		; The list length
+			CPIR				; Check if the token is in this list
 			POP     BC
-			JR      NZ,LEXANE
-			SET     4,C             ;ACCEPT LINE NUMBER
-LEXANE:			LD      HL,LIST2
-			PUSH    BC
-			LD      BC,LIST2L
-			CPIR
-			POP     BC
-			JR      NZ,LEXANF
-			SET     0,C             ;ENTER LEFT MODE
-LEXANF:			JP      LEXAN1
+			JR      NZ,LEXANE		; If not, then skip
+			SET     4,C             	; FLAG: ACCEPT LINE NUMBER
 ;
-LIST1:			DB    GOTO
-			DB    GOSUB
-			DB    RESTOR
-			DB    TRACE
-LIST2:			DB    THEN
-			DB    ELSE_
+LEXANE:			LD      HL,LIST2		; List of tokens that switch the lexical analysis back to LEFT mode
+			PUSH    BC
+			LD      BC,LIST2L		; The list length
+			CPIR				; Check if the token is in this list
+			POP     BC		
+			JR      NZ,LEXANF		; If not, then skip
+			SET     0,C             	; FLAG: ENTER LEFT MODE
+LEXANF:			JP      LEXAN1			; And loop
+
+;
+; LIST1: List of tokens that must be followed by line numbers
+; LIST2: List of tokens that switch the lexical analysis back to LEFT mode
+;
+LIST1:			DB	GOTO
+			DB	GOSUB
+			DB	RESTOR
+			DB	TRACE
+LIST2:			DB	THEN
+			DB	ELSE_
 LIST1L:			EQU     $-LIST1
-			DB    REPEAT
-			DB    TERROR
-			DB    ':'
+			DB	REPEAT
+			DB	TERROR
+			DB    	':'
 LIST2L:			EQU     $-LIST2
 ;
 ; ENCODE - ENCODE LINE NUMBER INTO PSEUDO-BINARY FORM.
