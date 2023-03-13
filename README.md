@@ -36,13 +36,13 @@ The AGON documentation can now be found on the [Agon Light Documentation Wiki](h
 
 This code is distributable under the terms of a zlib license. Read the file [COPYING](COPYING) for more information.
 
-The BASIC interpreter, as originally written by R.T. Russell and [downloaded from David Given's GitHub page](https://github.com/davidgiven/cpmish/tree/master/third_party/bbcbasic), has been modified slightly, either for compatibility reasons when assembling using sjasmplus, or for development reasons for this release:
-
-The original files are: [eval.z80](eval.z80), [exec.z80](exec.z80), [fpp.z80](fpp.z80), [patch.z80](patch.z80), [main.z80](main.z80), [ram.z80](ram.z80) and [sorry.z80](sorry.z80), and all the files in the examples folder.
-
-The source code is equivalent to the code originally authored by R.T.Russell, downloaded on David Given's website: 
+Many thanks to R.T. Russell for open sourcing the source code, and David Given for facilitating this.
 
 http://cowlark.com/2019-06-14-bbcbasic-opensource/index.html
+
+The BASIC interpreter, as originally written by R.T. Russell and [downloaded from David Given's GitHub page](https://github.com/davidgiven/cpmish/tree/master/third_party/bbcbasic), has been modified slightly, either for compatibility reasons when assembling using the ZDS IDE, or for development reasons for this release.
+
+The original files are: [eval.z80](eval.z80), [exec.z80](exec.z80), [fpp.z80](fpp.z80), [patch.z80](patch.z80), [main.z80](main.z80), [ram.z80](ram.z80) and [sorry.z80](sorry.z80), [bbcbasic.txt](bbcbasic.txt), the license ([COPYING](COPYING)) and all the files in the examples folder.
 
 Any additions or modifications I've made to port this to the Agon have been released under the same licensing terms as the original code, along with any tools, examples or utilities contained within this project. Code that has been copied or inspired by other sources is clearly marked, with the appropriate accreditations.
 
