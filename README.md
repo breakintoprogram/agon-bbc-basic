@@ -28,13 +28,17 @@ NB:
 
 Of course you can just copy the latest bbcbasic.bin file to the Agon SD card
 
+### Documentation
+
+The AGON documentation can now be found on the [Agon Light Documentation Wiki](https://github.com/breakintoprogram/agon-docs/wiki)
+
 ### License
 
 This code is distributable under the terms of a zlib license. Read the file [COPYING](COPYING) for more information.
 
 The BASIC interpreter, as originally written by R.T. Russell and [downloaded from David Given's GitHub page](https://github.com/davidgiven/cpmish/tree/master/third_party/bbcbasic), has been modified slightly, either for compatibility reasons when assembling using sjasmplus, or for development reasons for this release:
 
-The original files are: [eval.z80](eval.z80), [exec.z80](exec.z80), [fpp.z80](fpp.z80), [patch.z80](patch.z80), [ram.z80](ram.z80) and [sorry.z80](sorry.z80).
+The original files are: [eval.z80](eval.z80), [exec.z80](exec.z80), [fpp.z80](fpp.z80), [patch.z80](patch.z80), [main.z80](main.z80), [ram.z80](ram.z80) and [sorry.z80](sorry.z80), and all the files in the examples folder.
 
 The source code is equivalent to the code originally authored by R.T.Russell, downloaded on David Given's website: 
 
