@@ -82,82 +82,82 @@
 			XREF	OSKEY
 			XREF	INKEY1
 ;
-;BINARY FLOATING POINT REPRESENTATION:
-;   32 BIT SIGN-MAGNITUDE NORMALIZED MANTISSA
-;    8 BIT EXCESS-128 SIGNED EXPONENT
-;   SIGN BIT REPLACES MANTISSA MSB (IMPLIED "1")
-;   MANTISSA=0 & EXPONENT=0 IMPLIES VALUE IS ZERO.
+; BINARY FLOATING POINT REPRESENTATION:
+;    32 BIT SIGN-MAGNITUDE NORMALIZED MANTISSA
+;     8 BIT EXCESS-128 SIGNED EXPONENT
+;    SIGN BIT REPLACES MANTISSA MSB (IMPLIED "1")
+;    MANTISSA=0 & EXPONENT=0 IMPLIES VALUE IS ZERO.
 ;
-;BINARY INTEGER REPRESENTATION:
-;   32 BIT 2'S-COMPLEMENT SIGNED INTEGER
-;    "EXPONENT" BYTE = 0 (WHEN PRESENT)
+; BINARY INTEGER REPRESENTATION:
+;    32 BIT 2'S-COMPLEMENT SIGNED INTEGER
+;     "EXPONENT" BYTE = 0 (WHEN PRESENT)
 ;
-;NORMAL REGISTER ALLOCATION: MANTISSA - HLH'L'
-;                            EXPONENT - C
+; NORMAL REGISTER ALLOCATION: MANTISSA - HLH'L'
+;                             EXPONENT - C
 ;
 
 ;
-;TABLE OF ADDRESSES FOR FUNCTIONS:
+; Table of addresses for functions
 ;
-FUNTOK:			EQU     8DH             ;1st FUNCTION TOKEN
+FUNTOK:			EQU	8DH			; First token number
 ;
-FUNTBL:			DW    DECODE          ;Line number
-			DW    OPENIN          ;OPENIN
-			DW    PTR             ;PTR
-			DW    PAGEV           ;PAGE
-			DW    TIMEV           ;TIME
-			DW    LOMEMV          ;LOMEM
-			DW    HIMEMV          ;HIMEM
-			DW    ABSV            ;ABS
-			DW    ACS             ;ACS
-			DW    ADVAL           ;ADVAL
-			DW    ASC             ;ASC
-			DW    ASN             ;ASN
-			DW    ATN             ;ATN
-			DW    BGET            ;BGET
-			DW    COS             ;COS
-			DW    COUNTV          ;COUNT
-			DW    DEG             ;DEG
-			DW    ERLV            ;ERL
-			DW    ERRV            ;ERR
-			DW    EVAL_            ;EVAL
-			DW    EXP             ;EXP
-			DW    EXT             ;EXT
-			DW    ZERO            ;FALSE
-			DW    FN              ;FN
-			DW    GET             ;GET
-			DW    INKEY           ;INKEY
-			DW    INSTR           ;INSTR(
-			DW    INT_            ;INT
-			DW    LEN             ;LEN
-			DW    LN              ;LN
-			DW    LOG             ;LOG
-			DW    NOTK            ;NOT
-			DW    OPENUP          ;OPENUP
-			DW    OPENOT          ;OPENOUT
-			DW    PI              ;PI
-			DW    POINT           ;POINT(
-			DW    POS             ;POS
-			DW    RAD             ;RAD
-			DW    RND             ;RND
-			DW    SGN             ;SGN
-			DW    SIN             ;SIN
-			DW    SQR             ;SQR
-			DW    TAN             ;TAN
-			DW    TOPV            ;TO(P)
-			DW    TRUE            ;TRUE
-			DW    USR             ;USR
-			DW    VAL             ;VAL
-			DW    VPOS            ;VPOS
-			DW    CHRS            ;CHRS
-			DW    GETS            ;GETS
-			DW    INKEYS          ;INKEYS
-			DW    LEFTS           ;LEFTS(
-			DW    MIDS            ;MIDS(
-			DW    RIGHTS          ;RIGHTS(
-			DW    STRS            ;STR$
-			DW    STRING_          ;STRINGS(
-			DW    EOF             ;EOF
+FUNTBL:			DW	DECODE			; Line number
+			DW	OPENIN			; OPENIN
+			DW	PTR			; PTR
+			DW	PAGEV			; PAGE
+			DW	TIMEV			; TIME
+			DW	LOMEMV			; LOMEM
+			DW	HIMEMV			; HIMEM
+			DW	ABSV			; ABS
+			DW	ACS			; ACS
+			DW	ADVAL			; ADVAL
+			DW	ASC			; ASC
+			DW	ASN			; ASN
+			DW	ATN			; ATN
+			DW	BGET			; BGET
+			DW	COS			; COS
+			DW	COUNTV			; COUNT
+			DW	DEG			; DEG
+			DW	ERLV			; ERL
+			DW	ERRV			; ERR
+			DW	EVAL_			; EVAL
+			DW	EXP			; EXP
+			DW	EXT			; EXT
+			DW	ZERO			; FALSE
+			DW	FN			; FN
+			DW	GET			; GET
+			DW	INKEY			; INKEY
+			DW	INSTR			; INSTR(
+			DW	INT_			; INT
+			DW	LEN			; LEN
+			DW	LN			; LN
+			DW	LOG			; LOG
+			DW	NOTK			; NOT
+			DW	OPENUP			; OPENUP
+			DW	OPENOT			; OPENOUT
+			DW	PI			; PI
+			DW	POINT			; POINT(
+			DW	POS			; POS
+			DW	RAD			; RAD
+			DW	RND			; RND
+			DW	SGN			; SGN
+			DW	SIN			; SIN
+			DW	SQR			; SQR
+			DW	TAN			; TAN
+			DW	TOPV			; TO(P)
+			DW	TRUE			; TRUE
+			DW	USR			; USR
+			DW	VAL			; VAL
+			DW	VPOS			; VPOS
+			DW	CHRS			; CHRS
+			DW	GETS			; GETS
+			DW	INKEYS			; INKEYS
+			DW	LEFTS			; LEFTS(
+			DW	MIDS			; MIDS(
+			DW	RIGHTS			; RIGHTS(
+			DW	STRS			; STR$
+			DW	STRING_			; STRINGS(
+			DW	EOF			; EOF
 ;
 FUNTBL_END:		EQU	$
 TCMD:			EQU     FUNTOK+(FUNTBL_END-FUNTBL)/2
@@ -168,64 +168,71 @@ EORK:			EQU     82H
 MODK:			EQU     83H
 ORK:			EQU     84H
 ;
-SOPTBL:			DW    SLE             ;<= (STRING)
-			DW    SNE             ;<>
-			DW    SGE             ;>=
-			DW    SLT             ;<
-			DW    SEQ             ;=
-			DW    SGT             ;>
+SOPTBL:			DW	SLE			; <= (STRING)
+			DW	SNE			; <>
+			DW	SGE			; >=
+			DW	SLT			; <
+			DW	SEQ			; =
+			DW	SGT			; >
 ;
-;EXPR - VARIABLE-TYPE EXPRESSION EVALUATION
+; EXPR - VARIABLE-TYPE EXPRESSION EVALUATION
 ;     Expression type is returned in A'F':
 ;        Numeric - A' bit 7=0, F' sign bit cleared.
 ;         String - A' bit 7=1, F' sign bit set.
-;Floating-point or integer result returned in HLH'L'C
+; Floating-point or integer result returned in HLH'L'C
 ; Integer result denoted by C=0 and HLH'L' non-zero.
-;String result returned in string accumulator, DE set.
+; String result returned in string accumulator, DE set.
 ;
-;Hierarchy is: (1) Variables, functions,
-;                  constants, bracketed expressions.
-;              (2) ^
-;              (3) * / MOD DIV
-;              (4) + -
-;              (5) = <> <= >= > <
-;              (6) AND
-;              (7) EOR OR
+; Hierarchy is: (1) Variables, functions, constants, bracketed expressions.
+;               (2) ^
+;               (3) * / MOD DIV
+;               (4) + -
+;               (5) = <> <= >= > <
+;               (6) AND
+;               (7) EOR OR
+
 ;
-EXPR:			CALL    EXPR1           ;GET FIRST OPERAND
-EXPR0A:			CP      EORK            ;CHECK OPERATOR
-			JR      Z,EXPR0B
-			CP      ORK
-			RET     NZ
-EXPR0B:			CALL    SAVE            ;SAVE FIRST OPERAND
-			CALL    EXPR1           ;GET SECOND OPERAND
-			CALL    DOIT            ;DO OPERATION
-			JR      EXPR0A          ;CONTINUE
+; Level 7: EOR and OR
 ;
-EXPR1:			CALL    EXPR2
-EXPR1A:			CP      ANDK
-			RET     NZ
-			CALL    SAVE
-			CALL    EXPR2
-			CALL    DOIT
-			JR      EXPR1A
+EXPR:			CALL    EXPR1			; Get first operator by calling Level 6
+EXPR0A:			CP      EORK            	; Is operator EOR?
+			JR      Z,EXPR0B		; Yes, so skip to next bit
+			CP      ORK			; Is operator OR
+			RET     NZ			; No, so return
 ;
-EXPR2:			CALL    EXPR3
-			CALL    RELOP?
-			RET     NZ
-			LD      B,A
-			INC     IY              ;BUMP OVER OPERATOR
-			CALL    NXT
-			CALL    RELOP?          ;COMPOUND OPERATOR?
-			JR      NZ,EXPR2B
-			INC     IY
-			CP      B
-			JP      Z,SYNTAX        ;ILLEGAL COMBINATION
-			ADD     A,B
-			LD      B,A
-EXPR2B:			LD      A,B
+EXPR0B:			CALL    SAVE            	; Save first operand
+			CALL    EXPR1           	; Get second operand
+			CALL    DOIT            	; Do the operation
+			JR      EXPR0A          	; And continue
+;
+; Level 6: AND
+;
+EXPR1:			CALL    EXPR2			; Get first operator by calling Level 5
+EXPR1A:			CP      ANDK			; Is operator AND?
+			RET     NZ			; No, so return
+			CALL    SAVE			; Save first operand
+			CALL    EXPR2			; Get second operand
+			CALL    DOIT			; Do the operation
+			JR      EXPR1A			; And continue
+;
+; Level 5: Comparisons
+;
+EXPR2:			CALL    EXPR3			; Get first operator by calling Level 4
+			CALL    RELOP?			; Is it ">", "=" or "<"?
+			RET     NZ			; No, so return
+			LD      B,A			; Store the first operator in B
+			INC     IY              	; Bump over operator
+			CALL    NXT			; 
+			CALL    RELOP?          	; Is it a compound operator?
+			JR      NZ,EXPR2B		; No, so skip next bit
+			INC     IY			; Bump over operator
+			CP      B			; Compare with first
+			JP      Z,SYNTAX        	; Trap illegal combinations ">>", "==", "<<" (but not "><", "=>", "=<")
+			ADD     A,B			
+			LD      B,A			; B: Unique code for the compound operator
+EXPR2B:			LD      A,B			; A: Code for the operator/compound operator
 			EX      AF,AF'
-			JP      M,EXPR2S
+			JP      M,EXPR2S		; If it is a string, then branch here to handle it
 			EX      AF,AF'
 			SUB     4
 			CP      '>'-4
@@ -233,23 +240,23 @@ EXPR2B:			LD      A,B
 			ADD     A,2
 EXPR2C:			CALL    SAVE1
 			CALL    EXPR3
-			CALL    DOIT            ;Must NOT be "JP DOIT"
+			CALL    DOIT            	; NB: Must NOT be "JP DOIT"
 			RET
 ;
-EXPR2S:			EX      AF,AF'
+EXPR2S:			EX      AF,AF'			; Handle string comparisons
 			DEC     A
 			AND     7
-			CALL    PUSHS           ;SAVE STRING ON STACK
-			PUSH    AF              ;SAVE OPERATOR
-			CALL    EXPR3           ;SECOND STRING
+			CALL    PUSHS           	; Save string on the stack
+			PUSH    AF              	; Save the operator
+			CALL    EXPR3           	; Get the second string
 			EX      AF,AF'
 			JP      P,TYPE_
 			POP     AF
-			LD      C,E             ;LENGTH OF STRING #2
+			LD      C,E             	; Length of string #2
 			POP     DE
 			LD      HL,0
 			ADD     HL,SP
-			LD      B,E             ;LENGTH OF STRING #1
+			LD      B,E             	; Length of string #1
 			PUSH    DE
 			LD      DE,ACCS
 			EX      DE,HL
@@ -260,32 +267,34 @@ EXPR2S:			EX      AF,AF'
 			ADD     HL,SP
 			LD      SP,HL
 			EX      DE,HL
-			XOR     A               ;NUMERIC MARKER
-			LD      C,A             ;INTEGER MARKER
+			XOR     A               	; Numeric marker
+			LD      C,A             	; Integer marker
 			EX      AF,AF'
 			LD      A,(IY)
 			RET
 ;
-EXPR3:			CALL    EXPR4
-EXPR3A:			CP      '-'
-			JR      Z,EXPR3B
-			CP      '+'
-			RET     NZ
-			EX      AF,AF'
-			JP      M,EXPR3S
-			EX      AF,AF'
-EXPR3B:			CALL    SAVE
-			CALL    EXPR4
-			CALL    DOIT
-			JR      EXPR3A
+; Level 4: + and -
 ;
-EXPR3S:			EX      AF,AF'
-			INC     IY              ;BUMP PAST '+'
-			CALL    PUSHS           ;SAVE STRING ON STACK
-			CALL    EXPR4           ;SECOND STRING
+EXPR3:			CALL    EXPR4			; Get first operator by calling Level 3
+EXPR3A:			CP      '-'			; Is it "-"?
+			JR      Z,EXPR3B		; Yes, so skip the next bit
+			CP      '+'			; Is it "+"?
+			RET     NZ			; No, so return
+			EX      AF,AF'			; Get the type
+			JP      M,EXPR3S		; Branch here if string
 			EX      AF,AF'
-			JP      P,TYPE_
-			LD      C,E             ;C=LENGTH
+EXPR3B:			CALL    SAVE			; Save the first operator
+			CALL    EXPR4			; Fetch the second operator
+			CALL    DOIT			; Do the operation
+			JR      EXPR3A			; And continue
+;
+EXPR3S:			EX      AF,AF'			; Handle string concatenation
+			INC     IY              	; Bump past the "+"
+			CALL    PUSHS           	; Save the string on the stack
+			CALL    EXPR4           	; Fetch the second operator
+			EX      AF,AF'
+			JP      P,TYPE_			; If it is not a string, then Error: "Type mismatch"
+			LD      C,E             	; C: String length
 			POP     DE
 			PUSH    DE
 			LD      HL,ACCS
@@ -294,134 +303,155 @@ EXPR3S:			EX      AF,AF'
 			OR      A
 			JR      Z,EXP3S3
 			LD      B,L
-			LD      L,A             ;SOURCE
+			LD      L,A             	; Source
 			ADD     A,E
-			LD      E,A             ;DESTINATION
+			LD      E,A             	; Destination
 			LD      A,19
-			JP      C,ERROR_         ;"String too long"
+			JP      C,ERROR_         	; A carry indicates string > 255 bytes, so Error: "String too long"
 			PUSH    DE
 			DEC     E
 			DEC     L
-			LDDR                    ;COPY
+			LDDR                    	; Copy
 			POP     DE
 EXP3S3:			EXX
 			POP     BC
-			CALL    POPS            ;RESTORE FROM STACK
+			CALL    POPS            	; Restore from stack
 			EXX
-			OR      80H             ;FLAG STRING
+			OR      80H             	; Flag as a string
 			EX      AF,AF'
-			LD      A,(IY)
-			JR      EXPR3A
+			LD      A,(IY)			; Fetch the next character
+			JR      EXPR3A			; And continue
 ;
-EXPR4:			CALL    EXPR5
-EXPR4A:			CP      '*'
+; Level 3: * / MOD DIV
+;
+EXPR4:			CALL    EXPR5			; Get first operator by calling Level 2
+EXPR4A:			CP      '*'			; "*" is valid
 			JR      Z,EXPR4B
-			CP      '/'
+			CP      '/'			; "/" is valid
 			JR      Z,EXPR4B
-			CP      MODK
+			CP      MODK			; MOD token is valid
 			JR      Z,EXPR4B
-			CP      DIVK
-			RET     NZ
+			CP      DIVK			; DIV token is valid
+			RET     NZ			; And return if it is anything else
 EXPR4B:			CALL    SAVE
 			CALL    EXPR5
 			CALL    DOIT
 			JR      EXPR4A
 ;
-EXPR5:			CALL    ITEM
-			OR      A               ;TEST TYPE
-			EX      AF,AF'          ;SAVE TYPE
-EXPR5A:			CALL    NXT
-			CP      '^'
-			RET     NZ
-			CALL    SAVE
-			CALL    ITEM
-			OR      A
-			EX      AF,AF'
-			CALL    DOIT
-			JR      EXPR5A
+; Level 2: ^
 ;
-EXPRN:			CALL    EXPR
-			EX      AF,AF'
-			RET     P
-			JR      TYPE_
+EXPR5:			CALL    ITEM			; Get variable
+			OR      A               	; Test type
+			EX      AF,AF'          	; Save type 
+EXPR5A:			CALL    NXT			; Skip spaces
+			CP      '^'			; Is the operator "^"?
+			RET     NZ			; No, so return
+			CALL    SAVE			; Save first operand
+			CALL    ITEM			; Get second operand
+			OR      A			; Test type
+			EX      AF,AF'			; Save type
+			CALL    DOIT			; Do the operation
+			JR      EXPR5A			; And continue
 ;
-EXPRI:			CALL    EXPR
-			EX      AF,AF'
-			JP      P,SFIX
-			JR      TYPE_
+; Evaluate a numeric expression
 ;
-EXPRS:			CALL    EXPR
-			EX      AF,AF'
-			RET     M
-			JR      TYPE_
+EXPRN:			CALL    EXPR			; Evaluate expression
+			EX      AF,AF'			; Get the type
+			RET     P			; And return if it is a number
+			JR      TYPE_			; Otherwise Error: "Type mismatch"
 ;
+; Evaluate a fixed-point expression 
 ;
-ITEMN:			CALL    ITEM
-			OR      A
-			RET     P
-			JR      TYPE_
+EXPRI:			CALL    EXPR			; Evaluate the expression
+			EX      AF,AF'			; Get the type
+			JP      P,SFIX			; If it is numeric, then convert to fixed-point notation
+			JR      TYPE_			; Otherwise Error: "Type mismatch"
+;	
+; Evaluate a string expression
+;	
+EXPRS:			CALL    EXPR			; Evaluate the expression
+			EX      AF,AF'			; Get the type
+			RET     M			; And return if it is a string
+			JR      TYPE_			; Otherwise Error: "Type mismatch"
 ;
-ITEMI:			CALL    ITEM
-			OR      A
-			JP      P,SFIX
-			JR      TYPE_
+; Get a numeric variable
 ;
-ITEMS:			CALL    ITEM
-			OR      A
-			RET     M
-TYPE_:			LD      A,6
-			JP      ERROR_           ;"Type mismatch"
+ITEMN:			CALL    ITEM			; Get the variable
+			OR      A			; Test the type
+			RET     P			; And return if it is a number
+			JR      TYPE_			; Otherwise Error: "Type mismatch"
 ;
-ITEM1:			CALL    EXPR            ;BRACKETED EXPR
-			CALL    BRAKET
+; Get a fixed-point variable 
+;
+ITEMI:			CALL    ITEM			; Get the variable
+			OR      A			; Test the type
+			JP      P,SFIX			; If it is numeric, then convert to fixed-point notation
+			JR      TYPE_			; Otherwise Error: "Type mismatch"
+;
+; Get a string variable 
+;
+ITEMS:			CALL    ITEM			; Get the variable
+			OR      A			; Test the type
+			RET     M			; If it is a string, then return
+;							; Otherwise
+TYPE_:			LD      A,6			; Error: "Type mismatch"
+			JP      ERROR_           	
+;
+; Evaluate a bracketed expression
+;
+ITEM1:			CALL    EXPR            	; Evaluate the expression
+			CALL    BRAKET			; Check for closing bracket
 			EX      AF,AF'
 			RET
 ;
-;HEX - Get hexadecimal constant.
+; HEX - Get hexadecimal constant.
 ;   Inputs: ASCII string at (IY)
 ;  Outputs: Integer result in H'L'HL, C=0, A7=0.
 ;           IY updated (points to delimiter)
 ;
-HEX:			CALL    ZERO
-			CALL    HEXDIG
-			JR      C,BADHEX
-HEX1:			INC     IY
-			AND     0FH
-			LD      B,4
-HEX2:			EXX
-			ADD     HL,HL
+HEX:			CALL    ZERO			; Set result to 0
+			CALL    HEXDIG			; Fetch the character from IY
+			JR      C,BADHEX		; If invalid HEX character, then Error: "Bad HEX"
+HEX1:			INC     IY			; Move pointer to next character
+			AND     0FH			; Clear the top nibble
+			LD      B,4			; Loop counter
+;
+HEX2:			EXX				; Shift the result left B (4) times. This makes
+			ADD     HL,HL			; space for the incoming nibble in the least significant 4 bits
+			EXX				; .
+			ADC     HL,HL			; .
+			DJNZ    HEX2			; And loop
 			EXX
-			ADC     HL,HL
-			DJNZ    HEX2
-			EXX
-			OR      L
+			OR      L			; OR in the digit
 			LD      L,A
 			EXX
-			CALL    HEXDIG
-			JR      NC,HEX1
-			XOR     A
+;
+			CALL    HEXDIG			; Fetch the next character
+			JR      NC,HEX1			; If it is a HEX digit then loop
+			XOR     A			; Clear A
 			RET
 ;
 BADHEX:			LD      A,28
-			JP      ERROR_          ;"Bad HEX"
+			JP      ERROR_          	; Error: "Bad HEX"
 ;
-;MINUS - Unary minus.
+; MINUS - Unary minus.
 ;   Inputs: IY = text pointer
 ;  Outputs: Numeric result, same type as argument.
 ;           Result in H'L'HLC
 ;
-MINUS:			CALL    ITEMN
-MINUS0:			DEC     C
-			INC     C
-			JR      Z,NEGATE        ;ZERO/INTEGER
-			LD      A,H
-			XOR     80H             ;CHANGE SIGN (FP)
+MINUS:			CALL    ITEMN			; Get the numeric argument
+MINUS0:			DEC     C			; Check exponent (C)
+			INC     C			; If it is zero, then it's either a FP zero or an integer
+			JR      Z,NEGATE        	; So do an integer negation
+;
+			LD      A,H			; Do a FP negation by 
+			XOR     80H             	; Toggling the sign bit (H)
 			LD      H,A
-			XOR     A               ;NUMERIC MARKER
+			XOR     A               	; Numeric marker
 			RET
 ;
-NEGATE:			EXX
-			LD      A,H
+NEGATE:			EXX				; This section does a two's complement negation on H'L'HLC
+			LD      A,H			; First do a one's complement by negating all the bytes
 			CPL
 			LD      H,A
 			LD      A,L
@@ -434,41 +464,41 @@ NEGATE:			EXX
 			LD      A,L
 			CPL
 			LD      L,A
-ADD1:			EXX
-			INC     HL
+ADD1:			EXX				; Then add 1
+			INC     HL			
 			LD      A,H
 			OR      L
 			EXX
-			LD      A,0             ;NUMERIC MARKER
+			LD      A,0             	; Numeric marker
 			RET     NZ
 			INC     HL
 			RET
 ;
-;ITEM - VARIABLE TYPE NUMERIC OR STRING ITEM.
-;Item type is returned in A:  Bit 7=0 numeric.
-;                             Bit 7=1 string.
-;Numeric item returned in HLH'L'C.
-;String item returned in string accumulator,
-;  DE addresses byte after last (E=length).
+; ITEM - VARIABLE TYPE NUMERIC OR STRING ITEM.
+; Item type is returned in A:  Bit 7=0 numeric.
+;                              Bit 7=1 string.
+; Numeric item returned in HLH'L'C.
+; String item returned in string accumulator,
+;   DE addresses byte after last (E=length).
 ;
-ITEM:			CALL    CHECK
-			CALL    NXT
-			INC     IY
-			CP      '&'
-			JR      Z,HEX           ;HEX CONSTANT
-			CP      '-'
-			JR      Z,MINUS         ;UNARY MINUS
-			CP      '+'
-			JR      Z,ITEMN         ;UNARY PLUS
-			CP      '('
-			JR      Z,ITEM1         ;EXPRESSION
-			CP      34		;ASCII ""
-			JR      Z,CONS          ;STRING CONSTANT
-			CP      TCMD
-			JP      NC,SYNTAX       ;SYNTAX ERROR
-			CP      FUNTOK
-			JP      NC,DISPAT       ;FUNCTION
-			DEC     IY
+ITEM:			CALL    CHECK			; Check there's at least a page of free memory left and Error: "No room" if not
+			CALL    NXT			; Skip spaces
+			INC     IY			; Move to the prefix character
+			CP      '&'			; If `&`
+			JR      Z,HEX           	; Then get a HEX constant
+			CP      '-'			; If `-`
+			JR      Z,MINUS         	; Then get a negative number
+			CP      '+'			; If `+`
+			JR      Z,ITEMN         	; Then just fetch the number (unary plus)
+			CP      '('			; If `(`
+			JR      Z,ITEM1         	; Start of a bracketed expression
+			CP      34			; If `"`
+			JR      Z,CONS          	; Start of a string constant
+			CP      TCMD			; Is it out of range of the function table?
+			JP      NC,SYNTAX       	; Error: "Syntax Error"
+			CP      FUNTOK			; If it is in range, then 
+			JP      NC,DISPAT       	; It's a function
+			DEC     IY			
 			CP      ':'
 			JR      NC,ITEM2        ;VARIABLE?
 			CP      '0'
@@ -1256,7 +1286,7 @@ TEST:			LD      A,H
 ;   Outputs: HL=0, H'L'=line number, C=0.
 ;   Destroys: A,C,H,L,H',L',IY,F
 ;
-DECODE:		EXX
+DECODE:			EXX
 			LD      A,(IY)
 			INC     IY
 			RLA
@@ -1291,7 +1321,7 @@ HEXSTS:			INC     IY              ;SKIP TILDE
 			LD      A,80H
 			RET
 ;
-HEXSTR:		CALL    SFIX
+HEXSTR:			CALL    SFIX
 			LD      BC,8
 			LD      DE,ACCS
 HEXST1:			PUSH    BC
@@ -1361,7 +1391,8 @@ G9:			DW    9
 ;Compare string (DE) length B with string (HL) length C.
 ;Result preset to false.
 ;
-SCP:			CALL    SCP0
+SCP:			CALL	SCP0
+;
 ZERO:			LD      A,0
 			EXX
 			LD      H,A
@@ -1385,7 +1416,7 @@ SCP1:			DEC     B
 			INC     HL
 			JR      SCP1
 SCP2:			OR      A
-				DEC     C
+			DEC     C
 			RET     Z
 			SCF
 			RET
@@ -1464,7 +1495,7 @@ COMMA:			CALL    NXT
 			LD      A,5
 			JR      ERROR1          ;"Missing ,"
 ;
-BRAKET:		CALL    NXT
+BRAKET:			CALL    NXT
 			INC     IY
 			CP      ')'
 			RET     Z
@@ -1509,11 +1540,17 @@ DOIT:			EX      AF,AF'
 			LD      A,(IY)
 			RET
 ;
-NXT:			LD      A,(IY)
-			CP      ' '
+; Skip spaces
+; - IY: String pointer
+; Returns:
+;  - A: The non-space character found
+; - IY: Points to the character before that
+; 
+NXT:			LD      A,(IY)			; Fetch the character	
+			CP      ' '			; If it is space, then return
 			RET     NZ
-			INC     IY
-			JP      NXT
+			INC     IY			; Increment the pointer and
+			JP      NXT			; Loop
 ;
 DISPT2:			PUSH    HL
 			LD      HL,SOPTBL

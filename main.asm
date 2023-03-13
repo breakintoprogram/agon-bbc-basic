@@ -984,38 +984,51 @@ ERROR2:			LD      HL,0
 ;           IY updated (if NZ, IY unchanged).
 ; Destroys: A,B,H,L,IY,F
 ;
-LEX:			LD      HL,KEYWDS
-LEX0:			LD      A,(IY)
-			LD      B,(HL)
-			INC     HL
-			CP      (HL)
-			JR      Z,LEX2
-			RET     C               ;FAIL EXIT
-LEX1:			INC     HL
-			BIT     7,(HL)
-			JR      Z,LEX1
-			JR      LEX0
-LEX2:			PUSH    IY              ;SAVE POINTER
-LEX3:			INC     HL
-			BIT     7,(HL)
-			JR      NZ,LEX6         ;FOUND
-			INC     IY
-			LD      A,(IY)
-			CP      '.'
-			JR      Z,LEX6          ;FOUND (ABBREV.)
-			CP      (HL)
-			JR      Z,LEX3
-			CALL    RANGE1
-			JR      C,LEX5
-LEX4:			POP     IY              ;RESTORE POINTER
-			JR      LEX1
-LEX5:			LD      A,(HL)
-			OR      A
-			JR      NZ,LEX4
-			DEC     IY
-LEX6:			POP     AF
-			XOR     A
-			LD      A,B
+LEX:			LD      HL,KEYWDS		; Address of the keywords table
+;
+LEX0:			LD      A,(IY)			; Fetch the character to match
+			LD      B,(HL)			; B: The token from the keywords table
+			INC     HL			; Increment the pointer in the keywords table
+			CP      (HL)			; Compare the first characters
+			JR      Z,LEX2			; If there is a match, then skip to LEX2
+			RET     C               	; No match, so fail
+;
+; This snippet of code skips to the next token in the KEYWDS table
+;
+LEX1:			INC     HL			; Increment the pointer
+			BIT     7,(HL)			; Check if bit 7 set (all token IDs have bit 7 set)
+			JR      Z,LEX1			; No, so loop
+			JR      LEX0			; At this point HL is pointing to the start of the next keyword
+;
+LEX2:			PUSH    IY              	; Save the input pointer
+LEX3:			INC     HL			; Increment the keyword pointer
+			BIT     7,(HL)			; If we've reached the end (marked by the start of the next token) then
+			JR      NZ,LEX6         	; Jump to here as we've found a token
+			INC     IY			; Increment the text pointer
+			LD      A,(IY)			; Fetch the character
+			CP      '.'			; Is it an abbreviated keyword?
+			JR      Z,LEX6          	; Yes, so we'll return with the token we've found
+			CP      (HL)			; Compare with the keywords list
+			JR      Z,LEX3			; It's a match, so continue checking this keyword
+			CALL    RANGE1			; Is it alphanumeric, '@', '_' or '`'
+			JR      C,LEX5			; No, so check whether keyword needs to be immediately delimited
+;	
+LEX4:			POP     IY              	; Restore the input pointer ready for the next search
+			JR      LEX1			; And loop back to start again
+;
+; This section handles the 0 byte at the end of keywords that indicate the keyword needs to be
+; immediately delimited
+;
+LEX5:			LD      A,(HL)			; Fetch the byte from the keywords table	
+			OR      A			; If it is not zero, then...
+			JR      NZ,LEX4			; Keep searching
+			DEC     IY			; If it is zero, then skip the input pointer back one byte
+;
+; We've found a token at this point
+;
+LEX6:			POP     AF			; Discard IY input pointer pushed on the stack
+			XOR     A			; Set the Z flag
+			LD      A,B			; A: The token
 			RET
 ;
 ; DEL - DELETE A PROGRAM LINE.
@@ -1412,16 +1425,16 @@ PBCD4:			LD      DE,1000			; Set the column heading to 1,000s for subsequent run
 			SCF				; SCF set for SAYLN in this module
 			RET
 ;
-;PUTVAR - CREATE VARIABLE AND INITIALISE TO ZERO.
+; PUTVAR - CREATE VARIABLE AND INITIALISE TO ZERO.
 ;   Inputs: HL, IY as returned from GETVAR (NZ).
 ;  Outputs: As GETVAR.
 ; Destroys: everything
 ;
-PUTVAR:			CALL    CREATE
-			LD      A,(IY)
-			CP      '('
-			JR      NZ,GETVZ        ;SET EXIT CONDITIONS
-ARRAY:			LD      A,14            ;'Array'
+PUTVAR:			CALL    CREATE			; Create the variable
+			LD      A,(IY)			; Fetch the next character
+			CP      '('			; Check for bad use of array
+			JR      NZ,GETVZ        	; It's fine, so set the exit conditions
+ARRAY:			LD      A,14            	; Otherwise Error: 'Array'
 ERROR3:			JP      ERROR_
 ;
 ;GETVAR - GET LOCATION OF VARIABLE, RETURN IN HL & IX
@@ -1435,27 +1448,37 @@ ERROR3:			JP      ERROR_
 ;            HL, IY set for subsequent PUTVAR call.
 ; Destroys: everything
 ;
-GETVAR:			LD      A,(IY)
-			CP      '$'
-			JR      Z,GETV4
-			CP      '!'
-			JR      Z,GETV5
-			CP      '?'
-			JR      Z,GETV6
-			CALL    LOCATE
-			RET     NZ
-			LD      A,(IY)
-			CP      '('             ;ARRAY?
-			JR      NZ,GETVX        ;EXIT
-			PUSH    DE              ;SAVE TYPE
-			LD      A,(HL)          ;NO. OF DIMENSIONS
+GETVAR:			LD      A,(IY)			; Get the first character
+			CP      '$'			; Is it a string?
+			JR      Z,GETV4			; Yes, so branch here
+			CP      '!'			; Is it indirection (32-bit)?
+			JR      Z,GETV5			; Yes, so branch here
+			CP      '?'			; Is it indirection (8-bit)?
+			JR      Z,GETV6			; Yes, so branch here
+;
+			CALL    LOCATE			; Locate the variable
+			RET     NZ			; And exit here if not found
+;
+; At this point:
+;  HL: Address of variable in memory
+;   D: Variable type (4 = Integer, 5 = Floating point, 129 = String)
+;
+			LD      A,(IY)			; Further checks
+			CP      '('             	; Is it an array?
+			JR      NZ,GETVX        	; No, so exit
+;
+; We are processing an array at this point
+;
+			PUSH    DE              	; Save the variable type (in D)
+			LD      A,(HL)          	; Fetch the number of dimensions
 			OR      A
-			JR      Z,ARRAY
-			INC     HL
-			LD      DE,0            ;ACCUMULATOR
+			JR      Z,ARRAY			; If there are none, then Error: 'Array'
+			INC     HL			; 
+			LD      DE,0            	; Accumulator
 			PUSH    AF
-			INC     IY              ;SKIP (
+			INC     IY              	; Skip "("
 			JR      GETV3
+;
 GETV2:			PUSH    AF
 			CALL    COMMA
 GETV3:			PUSH    HL
@@ -1501,29 +1524,35 @@ GETVZ:			PUSH    HL              ;SET EXIT CONDITIONS
 			CP      A
 			RET
 ;
-;PROCESS UNARY & BINARY INDIRECTION:
+; Process strings, unary & binary indirection:
 ;
-GETV4:			LD      A,128           ;STATIC STRING
+GETV4:			LD      A,128           	; Static strings
 			JR      GETV7
-GETV5:			LD      A,4             ;UNARY 32-BIT INDIRN.
+;
+GETV5:			LD      A,4             	; Unary 32-bit indirection
 			JR      GETV7
-GETV6:			XOR     A               ;UNARY 8-BIT INDIRECTION
+;
+GETV6:			XOR     A               	; Unary 8-bit indirection
+;
 GETV7:			LD      HL,0
 			PUSH    AF
 			JR      GETV0
 ;
-GETV8:			LD      B,4             ;32-BIT BINARY INDIRN.
+GETV8:			LD      B,4             	; Binary 32-bt indirection
 			JR      GETVA
-GETV9:			LD      B,0             ;8-BIT BINARY INDIRN.
+;
+GETV9:			LD      B,0             	; Binary 8-bit indirection
+;
 GETVA:			PUSH    HL
 			POP     IX
-			LD      A,D             ;TYPE
-			CP      129
-			RET     Z               ;STRING!
-			PUSH    BC
-			CALL    LOADN           ;LEFT OPERAND
+			LD      A,D            		; Fetch the variable type
+			CP      129			; Is it a string?
+			RET     Z               	; Yes, so exit here
+			PUSH    BC			
+			CALL    LOADN           	; LEFT OPERAND
 			CALL    SFIX
 			EXX
+;
 GETV0:			PUSH    HL
 			INC     IY
 			CALL    ITEMI
@@ -1557,10 +1586,10 @@ GETDEF:			LD      A,(IY+1)
 			SCF
 			RET
 ;
-;LOCATE - Try to locate variable name in static or
-;dynamic variables.  If illegal first character return
-;carry, non-zero.  If found, return no-carry, zero.
-;If not found, return no-carry, non-zero.
+; LOCATE - Try to locate variable name in static or
+; dynamic variables.  If illegal first character return
+; carry, non-zero.  If found, return no-carry, zero.
+; If not found, return no-carry, non-zero.
 ;   Inputs: IY addresses first character of name.
 ;           A=(IY)
 ;  Outputs: Z-flag set if found, then:
@@ -1571,43 +1600,57 @@ GETDEF:			LD      A,(IY+1)
 ;                               129 = string
 ; Destroys: A,D,E,H,L,IY,F
 ;
-LOCATE:			SUB     '@'
-			RET     C
-			LD      H,0
-			CP      'Z'-'@'+1
-			JR      NC,LOC0         ;NOT STATIC
-			ADD     A,A
-			LD      L,A
-			LD      A,(IY+1)        ;2nd CHARACTER
-			CP      '%'
-			JR      NZ,LOC1         ;NOT STATIC
-			LD      A,(IY+2)
-			CP      '('
-			JR      Z,LOC1          ;NOT STATIC
-			ADD     HL,HL
-			LD      DE,STAVAR       ;STATIC VARIABLES
-			ADD     HL,DE
+; Variable names can start with any letter of the alphabet (upper or lower case), underscore (_), or the grave accent (`)
+; They can contain any alphanumeric character and underscore (_)
+; String variables are postfixed with the dollar ($) character
+; Integer variables are postfixed with the percent (%) character
+; Static integer variables are named @%, A% to Z%
+; All other variables are dynamic
+;
+LOCATE:			SUB     '@'			; Check for valid range
+			RET     C			; First character not "@", "A" to "Z" or "a" to "z", so not a variable
+			LD      H,0			; Zero top byte of H
+			CP      'Z'-'@'+1		; Check for static ("@", "A" to "Z"); if it is not static...
+			JR      NC,LOC0         	; Then branch here
+			ADD     A,A			
+			LD      L,A			; HL: Static variable index * 2
+			LD      A,(IY+1)        	; Check the 2nd character
+			CP      '%'			; If not "%" then it is not static...
+			JR      NZ,LOC1         	; Branch here
+			LD      A,(IY+2)		; Check the 3rd character
+			CP      '('			; If it is "(" (array) then it is not static...
+			JR      Z,LOC1          	; Branch here
+;
+; At this point we're dealing with a static variable
+;
+			ADD     HL,HL			; HL: Static variable index * 4
+			LD      DE,STAVAR       	; The static variable area in memory
+			ADD     HL,DE			; HL: The address of the static variable
+			INC     IY			; Skip the program pointer past the static variable name
 			INC     IY
-			INC     IY
-			LD      D,4             ;INTEGER TYPE
-			XOR     A
+			LD      D,4             	; Set the type to be integer
+			XOR     A			; Set the Z flag
 			RET
 ;
-LOC0:			CP      '_'-'@'
-			RET     C
-			CP      'z'-'@'+1
-			CCF
-			DEC     A               ;SET NZ
-			RET     C
-			SUB     3
-			ADD     A,A
+; At this point it's potentially a dynamic variable, just need to do a few more checks
+;
+LOC0:			CP      '_'-'@'			; Check the first character is in
+			RET     C			; the range "_" to 
+			CP      'z'-'@'+1		; "z" (lowercase characters only)
+			CCF				; If it is not in range then
+			DEC     A               	; Set NZ flag and
+			RET     C			; Exit here
+			SUB     3			; This brings it in the range of 27 upwards (need to confirm)
+			ADD     A,A			; Multiply by 2
 			LD      L,A
-LOC1:			LD      DE,DYNVAR       ;DYNAMIC VARIABLES
+;
+LOC1:			LD      DE,DYNVAR       	; The dynamic variable storage
 			DEC     L
 			DEC     L
 			SCF
 			RET     M
-			ADD     HL,DE
+			ADD     HL,DE			; HL: Address of first entry
+;
 LOC2:			LD      E,(HL)
 			INC     HL
 			LD      D,(HL)
@@ -1657,7 +1700,7 @@ TYPE_:			LD      A,(IY-1)
 LOC6:			INC     A               ;SET NZ
 			RET
 ;
-;CREATE - CREATE NEW ENTRY, INITIALISE TO ZERO.
+; CREATE - CREATE NEW ENTRY, INITIALISE TO ZERO.
 ;   Inputs: HL, IY as returned from LOCATE (NZ).
 ;  Outputs: As LOCATE, GETDEF.
 ; Destroys: As LOCATE, GETDEF.
@@ -2047,4 +2090,3 @@ TELL:			EX      (SP), HL		; Get the return address off the stack into HL, this i
 			CALL    TEXT_			; first byte of the string that follows it. Print it, then
 			EX      (SP), HL		; HL will point to the next instruction, swap this back onto the stack	
 			RET				; at this point we'll return to the first instruction after the message
-;
