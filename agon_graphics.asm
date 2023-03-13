@@ -2,13 +2,15 @@
 ; Title:	BBC Basic for AGON - Graphics stuff
 ; Author:	Dean Belfield
 ; Created:	07/08/2022
-; Last Updated:	04/03/2023
+; Last Updated:	12/03/2023
 ;
 ; Modinfo:
 ; 19/08/2022:	Added GETSCHR, POINT
 ; 15/02/2023:	Fixed COLOUR, GCOL
 ; 23/02/2023:	Fixed MODE
 ; 04/03/2023:	Updated POINT to return colour index, not RGB
+; 12/03/223:	Palette change now suports COLOUR l, p syntax
+
 
 			
 			.ASSUME	ADL = 0
@@ -135,6 +137,7 @@ $$:			BIT.LIL	2, (IX+sysvar_vpd_pflags)
 
 
 ; COLOUR colour
+; COLOUR L,P
 ; COLOUR L,R,G,B
 ;
 COLOUR:			CALL	EXPRI			; The colour / mode
@@ -143,18 +146,30 @@ COLOUR:			CALL	EXPRI			; The colour / mode
 			LD	(VDU_BUFFER+0), A	; Store first parameter
 			CALL	NXT			; Are there any more parameters?
 			CP	','
-			JR	Z, COLOUR_1		; Yes, so we're parsing R,G,B next
+			JR	Z, COLOUR_1		; Yes, so we're doing a palette change next
 ;
 			VDU	11h			; Just set the colour
 			VDU	(VDU_BUFFER+0)
 			JP	XEQ			
 ;
 COLOUR_1:		CALL	COMMA
-			CALL	EXPRI			; Parse R
+			CALL	EXPRI			; Parse R (OR P)
 			EXX
 			LD	A, L
-			LD	(VDU_BUFFER+1), A	
-			CALL	COMMA
+			LD	(VDU_BUFFER+1), A
+			CALL	NXT			; Are there any more parameters?
+			CP	','
+			JR	Z, COLOUR_2		; Yes, so we're doing COLOUR L,R,G,B
+;
+			VDU	13h			; VDU:COLOUR
+			VDU	(VDU_BUFFER+0)		; Logical Colour
+			VDU	(VDU_BUFFER+1)		; Palette Colour
+			VDU	0			; RGB set to 0
+			VDU	0
+			VDU	0
+			JP	XEQ
+;
+COLOUR_2:		CALL	COMMA
 			CALL	EXPRI			; Parse G
 			EXX
 			LD	A, L
@@ -166,12 +181,12 @@ COLOUR_1:		CALL	COMMA
 			LD	(VDU_BUFFER+3), A							
 			VDU	13h			; VDU:COLOUR
 			VDU	(VDU_BUFFER+0)		; Logical Colour
-			VDU	10h			; Physical Colour
+			VDU	FFh			; Physical Colour (-1 for RGB mode)
 			VDU	(VDU_BUFFER+1)		; R
 			VDU	(VDU_BUFFER+2)		; G
 			VDU	(VDU_BUFFER+3)		; B
 			JP	XEQ
-							
+
 ; GCOL mode,colour
 ;
 GCOL:			CALL	EXPRI			; Parse MODE
