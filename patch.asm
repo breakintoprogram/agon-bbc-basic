@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	03/03/2023
+; Last Updated:	11/03/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -19,6 +19,7 @@
 ; 15/02/2023:	Updated STAR_VERSION TO 1.04
 ; 26/02/2023:	Fixed STAR_EDIT to use LISTIT instead of duplicated code, added OSBYTE_A0, tweaked OSWRCH, SAVE and LOAD as text files
 ; 03/03/2023:	Addd .BAS extension for LOAD/SAVE, improvements to OSLOAD_TXT
+; 11/03/2023:	Improved keyboard handling (GET, INKEY$)
 			
 			.ASSUME	ADL = 0
 				
@@ -201,8 +202,6 @@ OSWRCH_FILE:		PUSH	DE
 ; This is only called in GETS (eval.asm)
 ;
 OSRDCH:			MOSCALL	mos_getkey		; Read keyboard
-			OR	A 		
-			JR	Z, OSRDCH		; Loop until key is pressed
 			CP	1BH			; Check for ESC
 			JR	Z, ESCSET		; Yes, so set the ESC flag
 			RET
@@ -214,15 +213,14 @@ OSRDCH:			MOSCALL	mos_getkey		; Read keyboard
 ;           If carry set A = character
 ; Destroys: A,H,L,F
 ;
-OSKEY: 			MOSCALL	mos_getkey		; Read keyboard
-			OR	A			; If we have a character
-			JR	NZ, $F			; Then process it
-			LD	A,H			; Check if HL is 0 (this is passed by INKEY() function
-			OR	L
-			RET	Z 			; If it is then ret
-			HALT				; Bit of a bodge so this is timed in ms
-			DEC	HL 			; Decrement the counter and 
-			JR	OSKEY 			; loop
+OSKEY:			CALL	READKEY			; Read the keyboard 
+			JR	Z, $F 			; Skip if we have a key
+			LD	A, H 			; Check loop counter
+			OR 	L
+			RET 	Z 			; Return, we've not got a key at this point
+			CALL	WAIT_VBLANK 		; Wait a frame
+			DEC 	HL			; Decrement
+			JR	OSKEY 			; And loop
 $$:			CP	1BH			; If we are not pressing ESC, 
 			SCF 				; then flag we've got a character
 			RET	NZ		
@@ -241,9 +239,25 @@ ESCDIS: 		POP     HL
 ; ESCTEST
 ; Test for ESC key
 ;
-ESCTEST:		MOSCALL	mos_getkey		; Read keyboard
+ESCTEST:		CALL	READKEY			; Read the keyboard
+			RET	NZ			; Skip if no key is pressed				
 			CP	1BH			; If ESC pressed then
 			JR	Z,ESCSET		; jump to the escape set routine
+			RET
+
+; Read the keyboard
+; Returns:
+; - A: ASCII of the pressed key
+; - F: Z if the key is pressed, otherwise NZ
+;
+READKEY:		PUSH	HL 
+			PUSH	IX
+			MOSCALL	mos_sysvars		; Get the system variables
+			LD.LIL	L, (IX + sysvar_vkeydown)
+			LD.LIL	A, (IX + sysvar_keyascii)
+			POP	IX 
+			DEC	L 			; Is the key down?
+			POP	HL
 			RET
 ;
 ; TRAP
@@ -427,14 +441,17 @@ OSBYTE:			CP	13H			; We've only got one *FX command at the moment
 
 ; OSBYTE 0x13 (FX 19): Wait for vertical blank interrupt
 ;
-OSBYTE_13:		PUSH 	IX
+OSBYTE_13:		CALL	WAIT_VBLANK
+			LD	L, 0			; Returns 0
+			JP	COUNT0
+;
+WAIT_VBLANK:		PUSH 	IX			; Wait for VBLANK interrupt
 			MOSCALL	mos_sysvars		; Fetch pointer to system variables
 			LD.LIL	A, (IX + sysvar_time + 0)
 $$:			CP.LIL 	A, (IX + sysvar_time + 0)
 			JR	Z, $B
 			POP	IX
-			LD	L, 0			; Returns 0
-			JP	COUNT0
+			RET
 			
 ; OSBYTE 0xA0: Fetch system variable
 ;  L: The system variable to fetch
