@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	11/03/2023
+; Last Updated:	15/03/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -20,6 +20,7 @@
 ; 26/02/2023:	Fixed STAR_EDIT to use LISTIT instead of duplicated code, added OSBYTE_A0, tweaked OSWRCH, SAVE and LOAD as text files
 ; 03/03/2023:	Addd .BAS extension for LOAD/SAVE, improvements to OSLOAD_TXT
 ; 11/03/2023:	Improved keyboard handling (GET, INKEY$)
+; 15/03/2023:	Added GETIMS and PUTIMS
 			
 			.ASSUME	ADL = 0
 				
@@ -52,6 +53,7 @@
 			XDEF	GETPTR
 			XDEF	PUTPTR
 			XDEF	GETEXT
+			XDEF	GETIMS
 			XDEF	RESET
 			XDEF	OSLOAD
 			XDEF	OSSAVE
@@ -802,6 +804,16 @@ PUTPTR:			RET
 ; Destroys: A,B,C,D,E,H,L,F
 ;
 GETEXT:			RET	
+
+; GETIMS - Get time from RTC
+;
+GETIMS:			PUSH	IY
+			LD	HL, ACCS 		; Where to store the time string
+			MOSCALL	mos_getrtc
+			LD	DE, ACCS		; DE: pointer to start of string accumulator
+			LD	E, A 			;  E: now points to the end of the string
+			POP	IY
+			RET 
 	
 ; Get two word values from EXPR in DE, HL
 ; IY: Pointer to expression string
