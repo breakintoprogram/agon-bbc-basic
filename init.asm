@@ -3,13 +3,14 @@
 ;		Initialisation Code
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	12/01/2023
+; Last Updated:	17/03/2023
 ;
 ; Modinfo:
 ; 14/07/2022:	Modified to run in MOS
 ; 15/10/2022:	Added RST_08 and RST_10 handlers
 ; 22/11/2022:	Added MOS header block
 ; 12/01/2023:	Added MOS C-style parameter processing routines
+; 17/03/2023:	Added RST_18 handler
 
 			SEGMENT __VECTORS
 			
@@ -35,7 +36,10 @@ RST_10:			RST.LIS 10h				; Output
 			RET
 			DS	5
 			
-RST_18:			DS	8
+RST_18:			RST.LIS	18h				; Block Output
+			RET
+			DS	5
+			
 RST_20:			DS	8
 RST_28:			DS	8
 RST_30:			DS	8	
