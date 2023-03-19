@@ -387,7 +387,7 @@ STAR_BYE:		RST.LIS	00h			; Reset MOS
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"AGON Version 1.04\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.04 RC1\n\r",0
 			RET
 	
 ; *EDIT linenum
