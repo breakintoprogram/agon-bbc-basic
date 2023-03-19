@@ -13,6 +13,7 @@ A handful of BBC BASIC programs I use for regression and soak testing:
 - `lines.bas`: Tests the line drawing
 - `mandlebrot_1.bas`: A Mandlebrot set renderer
 - `palette_1.bas`: Displays the full colour palette
+- `rtc.bas`: Setting and getting the real-time clock
 - `scroll_1.bas`: Scrolling stars demo (requires VDP 1.02)
 - `scroll_2.bas`: Scrolling scramble-like landscape demo (requires VDP 1.02)
 - `shadows.bas`: Tests the graphics commands for BBC Micro compatibility
@@ -22,6 +23,7 @@ A handful of BBC BASIC programs I use for regression and soak testing:
 - `sprites_3.bas`: As sprites_2.bbc, but using machine code to move the sprites
 - `sprites_4.bas`: As sprites_3.bbc, but loading a sprite animation from a file
 - `sprites_5.bas`: As sprites_4.bbc, but includes scrolling stars (requires VDP 1.02)
+- `sysvars.bas`: Using OSBYTE &A0 to fetch a MOS system variable (first 2 bytes of sysvar_time)
 - `triangles.bas`: Tests the filled triangle drawing
 - `udg.bas` Defines UDGs using VDU 23
 
