@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	15/03/2023
+; Last Updated:	21/03/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -21,6 +21,7 @@
 ; 03/03/2023:	Addd .BAS extension for LOAD/SAVE, improvements to OSLOAD_TXT
 ; 11/03/2023:	Improved keyboard handling (GET, INKEY$)
 ; 15/03/2023:	Added GETIMS and PUTIMS
+; 21/03/2023:	Added FX/OSBYTE functions for keyboard control, STAR_FX fixed to accept a single 16-bit parameter
 			
 			.ASSUME	ADL = 0
 				
@@ -387,7 +388,7 @@ STAR_BYE:		RST.LIS	00h			; Reset MOS
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"BBC BASIC (Agon) Version 1.04 RC1\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.04 RC2\n\r",0
 			RET
 	
 ; *EDIT linenum
@@ -421,25 +422,66 @@ STAR_EDIT:		CALL	ASC_TO_NUMBER		; DE: Line number to edit
 
 ; OSCLI FX n
 ;
-STAR_FX:		CALL	ASC_TO_NUMBER		; C: FX #
-			LD	C, E
-			CALL	ASC_TO_NUMBER		; B: First parameter
-			LD	B, E
-			CALL	ASC_TO_NUMBER		; E: Second parameter
+STAR_FX:		CALL	ASC_TO_NUMBER
+			LD	C, E			; C: Save FX #
+			CALL	ASC_TO_NUMBER
+			LD	A, D  			; Is first parameter > 255?
+			OR 	A 			
+			JR	Z, STAR_FX1		; Yes, so skip next bit 
+			EX	DE, HL 			; Parameter is 16-bit
+			JR	STAR_FX2 
+;
+STAR_FX1:		LD	B, E 			; B: Save First parameter
+			CALL	ASC_TO_NUMBER		; Fetch second parameter
 			LD	L, B 			; L: First parameter
 			LD	H, E 			; H: Second parameter
-			LD	A, C 			; A: FX #, and fall through to OSBYTE	
+;
+STAR_FX2:		LD	A, C 			; A: FX #, and fall through to OSBYTE	
 ;
 ; OSBYTE
 ;  A: FX #
 ;  L: First parameter
 ;  H: Second parameter
 ;
-OSBYTE:			CP	13H			; We've only got one *FX command at the moment
-			JR	Z, OSBYTE_13		; *FX 13
+OSBYTE:			CP	0BH			; *FX 11, n: Keyboard auto-repeat delay
+			JR	Z, OSBYTE_0B
+			CP	0CH			; *FX 12, n: Keyboard auto-repeat rate
+			JR	Z, OSBYTE_0C
+			CP	13H			; *FX 19: Wait for vblank
+			JR	Z, OSBYTE_13		
+			CP	76H			; *FX 118, n: Set keyboard LED
+			JR	Z, OSBYTE_76
 			CP	A0H
 			JR	Z, OSBYTE_A0		
 			JP	HUH			; Anything else trips an error
+
+; OSBYTE 0x0B (FX 11,n): Keyboard auto-repeat delay
+; Parameters:
+; - HL: Repeat delay
+;
+OSBYTE_0B:		VDU	23
+			VDU	0
+			VDU	8
+			VDU	L
+			VDU	H 
+			VDU	0
+			VDU 	0
+			VDU	255
+			RET 
+
+; OSBYTE 0x0C (FX 12,n): Keyboard auto-repeat rate
+; Parameters:
+; - HL: Repeat rate
+;
+OSBYTE_0C:		VDU	23
+			VDU	0
+			VDU	8
+			VDU	0
+			VDU 	0
+			VDU	L
+			VDU	H 
+			VDU	255
+			RET 
 
 ; OSBYTE 0x13 (FX 19): Wait for vertical blank interrupt
 ;
@@ -454,9 +496,24 @@ $$:			CP.LIL 	A, (IX + sysvar_time + 0)
 			JR	Z, $B
 			POP	IX
 			RET
+
+; OSBYTE 0x76 (FX 118,n): Set Keyboard LED
+; Parameters:
+; - L: LED (Bit 0: Scroll Lock, Bit 1: Caps Lock, Bit 2: Num Lock)
+;
+OSBYTE_76:		VDU	23
+			VDU	0
+			VDU	8
+			VDU	0
+			VDU 	0
+			VDU	0
+			VDU	0 
+			VDU	L
+			RET 
 			
 ; OSBYTE 0xA0: Fetch system variable
-;  L: The system variable to fetch
+; Parameters:
+; - L: The system variable to fetch
 ;
 OSBYTE_A0:		PUSH	IX
 			MOSCALL	mos_sysvars		; Fetch pointer to system variables
