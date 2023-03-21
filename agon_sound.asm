@@ -2,10 +2,11 @@
 ; Title:	BBC Basic for AGON - Audio stuff
 ; Author:	Dean Belfield
 ; Created:	19/09/2022
-; Last Updated:	22/02/2023
+; Last Updated:	21/03/2023
 ;
 ; Modinfo:
 ; 22/02/2023:	Fixed typo in sysvar_audioSuccess
+; 21/03/2023:	Now uses vdp defines
 
 			
 			.ASSUME	ADL = 0
@@ -86,7 +87,7 @@ SOUND0:			RES.LIL	3, (IX+sysvar_vpd_pflags)
 ;
 			VDU	23			; Send the sound command
 			VDU	0
-			VDU	5
+			VDU	vdp_audio
 			VDU	(VDU_BUFFER+0)		; 0: Channel
 			VDU	(VDU_BUFFER+1)		; 1: Waveform (0)
 			VDU	(VDU_BUFFER+2)		; 2: Volume (0-100)

@@ -2,14 +2,15 @@
 ; Title:	BBC Basic for AGON - Graphics stuff
 ; Author:	Dean Belfield
 ; Created:	07/08/2022
-; Last Updated:	12/03/2023
+; Last Updated:	21/03/2023
 ;
 ; Modinfo:
 ; 19/08/2022:	Added GETSCHR, POINT
 ; 15/02/2023:	Fixed COLOUR, GCOL
 ; 23/02/2023:	Fixed MODE
 ; 04/03/2023:	Updated POINT to return colour index, not RGB
-; 12/03/223:	Palette change now suports COLOUR l, p syntax
+; 12/03/2023:	Palette change now supports COLOUR l, p syntax
+; 21/03/2023:	Now uses vdp defines
 
 
 			
@@ -87,9 +88,9 @@ GETSCHR:		INC	IY
 			PUSH	IX			; Get the system vars in IX
 			MOSCALL	mos_sysvars		; Reset the semaphore
 			RES.LIL	1, (IX+sysvar_vpd_pflags)
-			VDU	23			; Do VDU 23,0,3,x;y;
+			VDU	23
 			VDU	0
-			VDU	3
+			VDU	vdp_scrchar
 			VDU	(VDU_BUFFER+0)
 			VDU	(VDU_BUFFER+1)
 			VDU	(VDU_BUFFER+2)
@@ -119,9 +120,9 @@ POINT:			CALL    EXPRI      		; Get X coordinate
 			PUSH	IX			; Get the system vars in IX
 			MOSCALL	mos_sysvars		; Reset the semaphore
 			RES.LIL	2, (IX+sysvar_vpd_pflags)
-			VDU	23			; Do VDU 23,0,4,x;y;
+			VDU	23
 			VDU	0
-			VDU	4
+			VDU	vdp_scrpixel
 			VDU	(VDU_BUFFER+0)
 			VDU	(VDU_BUFFER+1)
 			VDU	(VDU_BUFFER+2)

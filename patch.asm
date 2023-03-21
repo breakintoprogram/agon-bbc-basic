@@ -154,9 +154,9 @@ PUTCSR:			LD	A, 1Fh			; TAB
 GETCSR:			PUSH	IX			; Get the system vars in IX
 			MOSCALL	mos_sysvars		; Reset the semaphore
 			RES.LIL	0, (IX+sysvar_vpd_pflags)
-			VDU	23			; Do VDU 23,0,2
+			VDU	23
 			VDU	0
-			VDU	2
+			VDU	vdp_cursor
 $$:			BIT.LIL	0, (IX+sysvar_vpd_pflags)
 			JR	Z, $B			; Wait for the result
 			LD 	D, 0
@@ -461,7 +461,7 @@ OSBYTE:			CP	0BH			; *FX 11, n: Keyboard auto-repeat delay
 ;
 OSBYTE_0B:		VDU	23
 			VDU	0
-			VDU	8
+			VDU	vdp_keystate
 			VDU	L
 			VDU	H 
 			VDU	0
@@ -475,7 +475,7 @@ OSBYTE_0B:		VDU	23
 ;
 OSBYTE_0C:		VDU	23
 			VDU	0
-			VDU	8
+			VDU	vdp_keystate
 			VDU	0
 			VDU 	0
 			VDU	L
@@ -503,7 +503,7 @@ $$:			CP.LIL 	A, (IX + sysvar_time + 0)
 ;
 OSBYTE_76:		VDU	23
 			VDU	0
-			VDU	8
+			VDU	vdp_keystate
 			VDU	0
 			VDU 	0
 			VDU	0
