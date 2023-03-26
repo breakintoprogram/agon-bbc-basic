@@ -1,4 +1,4 @@
-<project type="Executable" project-type="Assembly Only" configuration="Release" created-by="d:5.3.0:19052909" modified-by="d:5.3.0:23020901" ZDSII="ZDSII - eZ80Acclaim! 5.3.5 (Build 23020901)">
+<project type="Executable" project-type="Assembly Only" configuration="Debug" created-by="d:5.3.0:19052909" modified-by="d:5.3.0:23020901" ZDSII="ZDSII - eZ80Acclaim! 5.3.5 (Build 23020901)">
 <cpu>eZ80F92</cpu>
 
 <!-- file information -->
@@ -15,6 +15,7 @@
 <file filter-key="">.\init.asm</file>
 <file filter-key="">.\agon_graphics.asm</file>
 <file filter-key="">.\agon_sound.asm</file>
+<file filter-key="">.\interrupts.asm</file>
 </files>
 
 <!-- configuration information -->
@@ -213,6 +214,13 @@ COPY LORAM RAM</option>
 
 <!-- breakpoint information -->
 <breakpoints>
+<breakpoint temporary="false" enabled="true" >
+<line-number>0</line-number>
+<pathname></pathname>
+<address>266172</address>
+<command></command>
+<preserve-type>1</preserve-type>
+</breakpoint>
 </breakpoints>
 
 </project>
