@@ -2,10 +2,11 @@
 ; Title:	BBC Basic for AGON - Interrupts
 ; Author:	Dean Belfield
 ; Created:	06/05/2022
-; Last Updated:	23/03/2023
+; Last Updated:	26/03/2023
 ;
 ; Modinfo:
 ; 23/03/2023:		Added VBLANK_INIT and VBLANK_HANDLER
+; 26/03/2023:		Fixed bug - MB changing in interrupt
 
 			.ASSUME	ADL = 0
 				
@@ -66,7 +67,13 @@ $$:			LD		(KEYASCII), A 			; Store locally
 VBLANK_HANDLER:		DI 
 			PUSH		AF 
 			PUSH		IX
+			LD		A, MB
+			PUSH		AF 
+			LD		A, 4				; TODO: This is a bit of a bodge
+			LD		MB, A
 			CALL.LIS	DO_KEYBOARD
+			POP		AF
+			LD		MB, A
 			POP		IX 
 			POP		AF 
 ;
