@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	26/02/2023
+; Last Updated:	24/03/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -13,6 +13,7 @@
 ; 28/09/2022:	Tidied up KEYWDS and ERRWDS, Added KEYWDS and KEYWDL to XDEFs, entry point ONEDIT for *EDIT
 ; 12/01/2023:	Added MOS C-style parameter processing routines and autoload functionality
 ; 26/02/2023:	Text in comments are not detokenised, Tweaks for *EDIT and OSLOAD_TXT
+; 24/03/2023:	Removed TEST_FILENAME
 
 			.ASSUME	ADL = 0				
 
@@ -162,8 +163,6 @@ OFFSET:			EQU     CFH-TOKLO		; Offset to the parameterised SET versions
 ; Returns:
 ;  HL: Error code, or 0 if OK
 ;
-TESTFILENAME:		DB	"tests/cube",CR		; TODO: Test code
-
 _main:			LD	HL, ACCS		; Clear the ACCS
 			LD	(HL), 0
 			LD	A, C			
