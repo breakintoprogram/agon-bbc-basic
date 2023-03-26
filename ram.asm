@@ -6,11 +6,12 @@
 ; Author:	(C) Copyright  R.T.Russell 31-12-1983
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	26/02/2023
+; Last Updated:	25/03/2023
 ;
 ; Modinfo:
 ; 03/08/2022:	Removed TIME and KEY_CODE - now in MOS
 ; 26/02/2023:	Tidied up and updated comments
+; 25/03/2023:	Added KEYDOWN and KEYASCII
 
 			.ASSUME	ADL = 0
 
@@ -49,6 +50,8 @@
 			XDEF	OSWRCHPT
 			XDEF	OSWRCHCH
 			XDEF	OSWRCHFH
+			XDEF	KEYDOWN 
+			XDEF	KEYASCII
 			
 			XDEF	RAM_START
 			XDEF	RAM_END
@@ -105,6 +108,8 @@ OSWRCHCH:		DS		1		; Channel of OSWRCH
 							; - 0: Console
 							; - 1: File
 OSWRCHFH:		DS		1		; File handle for OSWRCHCHN
+KEYDOWN:		DS		1		; Keydown flag
+KEYASCII:		DS		1		; ASCII code of pressed key
 ;
 ; This must be at the end
 ;
