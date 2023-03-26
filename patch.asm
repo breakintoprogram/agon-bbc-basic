@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	21/03/2023
+; Last Updated:	25/03/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -22,6 +22,7 @@
 ; 11/03/2023:	Improved keyboard handling (GET, INKEY$)
 ; 15/03/2023:	Added GETIMS and PUTIMS
 ; 21/03/2023:	Added FX/OSBYTE functions for keyboard control, STAR_FX fixed to accept a single 16-bit parameter
+; 25/03/2023:	Fixed range error in OSBYTE, now calls VBLANK_INIT in OSINIT, improved keyboard handling
 			
 			.ASSUME	ADL = 0
 				
@@ -95,12 +96,17 @@
 			XREF	CLEAN
 			XREF	NEWIT
 			XREF	BAD
+			XREF	VBLANK_INIT
+			XREF	KEYDOWN
+			XREF	KEYASCII
 
 ; OSLINE: Invoke the line editor
 ;
 OSLINE:			LD 	E, 1			; Default is to clear the buffer
-;
-OSLINE1:		PUSH	IY			; Entry point to not clear buffer
+
+; Entry point to line editor that does not clear the buffer
+; 
+OSLINE1:		PUSH	IY			
 			PUSH	HL			; Buffer address
 			LD	BC, 256			; Buffer length
 			MOSCALL	mos_editline		; Call the MOS line editor
@@ -110,11 +116,12 @@ OSLINE1:		PUSH	IY			; Entry point to not clear buffer
 			CALL	NULLTOCR		; Turn the 0 character to a CR
 			CALL	CRLF			; Display CRLF
 			POP	AF
-			CP	1Bh			; Check for Escape
-			JR	NZ, $F
-			CALL	ESCSET
-			CALL	LTRAP			
-$$:			XOR	A			; Return A = 0			
+			CP	1Bh 			; Check if ESC terminated the input
+			JP	Z, LTRAP1 		; Yes, so do the ESC thing
+			LD	A, (FLAGS)		; Otherwise
+			RES	7, A 			; Clear the escape flag
+			LD	(FLAGS), A 
+ 			XOR	A			; Return A = 0			
 			RET		
 
 ; PUTIME: set current time to DE:HL, in centiseconds.
@@ -205,9 +212,10 @@ OSWRCH_FILE:		PUSH	DE
 ; This is only called in GETS (eval.asm)
 ;
 OSRDCH:			MOSCALL	mos_getkey		; Read keyboard
-			CP	1BH			; Check for ESC
-			JR	Z, ESCSET		; Yes, so set the ESC flag
+			CP	1Bh
+			JR	Z, LTRAP1 
 			RET
+
 			
 ;OSKEY - Read key with time-limit, test for ESCape.
 ;Main function is carried out in user patch.
@@ -253,15 +261,10 @@ ESCTEST:		CALL	READKEY			; Read the keyboard
 ; - A: ASCII of the pressed key
 ; - F: Z if the key is pressed, otherwise NZ
 ;
-READKEY:		PUSH	HL 
-			PUSH	IX
-			MOSCALL	mos_sysvars		; Get the system variables
-			LD.LIL	L, (IX + sysvar_vkeydown)
-			LD.LIL	A, (IX + sysvar_keyascii)
-			POP	IX 
-			DEC	L 			; Is the key down?
-			POP	HL
-			RET
+READKEY:		LD	A, (KEYDOWN)		; Get key down
+			DEC	A 			; Set Z flag if keydown is 1
+			LD	A, (KEYASCII)		; Get key ASCII value
+			RET 
 ;
 ; TRAP
 ; This is called whenever BASIC needs to check for ESC
@@ -271,7 +274,7 @@ TRAP:			CALL	ESCTEST			; Read keyboard, test for ESC, set FLAGS
 LTRAP:			LD	A,(FLAGS)		; Get FLAGS
 			OR	A			; This checks for bit 7; if it is not set then the result will
 			RET	P			; be positive (bit 7 is the sign bit in Z80), so return
-			LD	HL,FLAGS 		; Escape is pressed at this point, so
+LTRAP1:			LD	HL,FLAGS 		; Escape is pressed at this point, so
 			RES	7,(HL)			; Clear the escape pressed flag and
 			JP	ESCAPE			; Jump to the ESCAPE error routine in exec.asm
 
@@ -283,7 +286,8 @@ LTRAP:			LD	A,(FLAGS)		; Get FLAGS
 ;            Z-flag reset indicates AUTO-RUN.
 ;  Destroys: A,D,E,H,L,F
 ;
-OSINIT:			XOR	A
+OSINIT:			CALL	VBLANK_INIT
+			XOR	A
 			LD	(FLAGS), A		; Clear flags and set F = Z
 			LD 	HL, USER
 			LD	DE, RAM_Top
@@ -452,7 +456,7 @@ OSBYTE:			CP	0BH			; *FX 11, n: Keyboard auto-repeat delay
 			CP	76H			; *FX 118, n: Set keyboard LED
 			JR	Z, OSBYTE_76
 			CP	A0H
-			JR	Z, OSBYTE_A0		
+			JP	Z, OSBYTE_A0		
 			JP	HUH			; Anything else trips an error
 
 ; OSBYTE 0x0B (FX 11,n): Keyboard auto-repeat delay
