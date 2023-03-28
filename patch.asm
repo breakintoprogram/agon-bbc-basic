@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	25/03/2023
+; Last Updated:	28/03/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -23,6 +23,7 @@
 ; 15/03/2023:	Added GETIMS and PUTIMS
 ; 21/03/2023:	Added FX/OSBYTE functions for keyboard control, STAR_FX fixed to accept a single 16-bit parameter
 ; 25/03/2023:	Fixed range error in OSBYTE, now calls VBLANK_INIT in OSINIT, improved keyboard handling
+; 28/03/2023:	Improved BYE command
 			
 			.ASSUME	ADL = 0
 				
@@ -97,6 +98,7 @@
 			XREF	NEWIT
 			XREF	BAD
 			XREF	VBLANK_INIT
+			XREF	VBLANK_STOP
 			XREF	KEYDOWN
 			XREF	KEYASCII
 
@@ -387,7 +389,10 @@ COMDS:  		DB	'BY','E'+80h		; BYE
 						
 ; *BYE
 ;
-STAR_BYE:		RST.LIS	00h			; Reset MOS
+STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
+			POP.LIL	IX 			; The return address to init
+			LD	HL, 0			; The return code
+			JP	(IX)
 	
 ; *VERSION
 ;
