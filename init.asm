@@ -3,7 +3,7 @@
 ;		Initialisation Code
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	17/03/2023
+; Last Updated:	28/03/2023
 ;
 ; Modinfo:
 ; 14/07/2022:	Modified to run in MOS
@@ -11,6 +11,7 @@
 ; 22/11/2022:	Added MOS header block
 ; 12/01/2023:	Added MOS C-style parameter processing routines
 ; 17/03/2023:	Added RST_18 handler
+; 28/03/2023:	Tweaked for improved BYE command
 
 			SEGMENT __VECTORS
 			
@@ -68,9 +69,12 @@ _start:			PUSH.LIL	IY			; Preserve IY
 			LD		IY, 0			; Preserve SPS
 			ADD		IY, SP
 			PUSH.LIL	IY
-			LD		SP, 8000h		; And set to 8000h, top of the MOS command area
+
+			EX		(SP), HL		; Get the SPS part of the return address
+			PUSH.LIL	HL
+			EX		(SP), HL		; And restore it for BASIC
 	
-			PUSH		AF			; Preserve the rest of the registers
+			PUSH.LIL	AF			; Preserve the rest of the registers
 			PUSH.LIL	BC
 			PUSH.LIL	DE
 			PUSH.LIL	IX
@@ -87,10 +91,14 @@ _start:			PUSH.LIL	IY			; Preserve IY
 			POP.LIL		IX			; Restore the registers
 			POP.LIL		DE
 			POP.LIL		BC
-			POP		AF
+			POP.LIL		AF
 
+			EX		DE, HL 			; DE: Return code from BASIC
+			POP.LIL		HL 			; The SPS part of the return address
 			POP.LIL		IY			; Get the preserved SPS
-			LD		SP, IY			; Restore the SP
+			LD		SP, IY			; Restore SPS
+			EX		(SP), HL		; Store the SPS part of the return address on the stack
+			EX		DE, HL 			; HL: Return code from BASIC
 			
 			POP.LIL		IY			; Restore IY
 			RET.L					; Return to MOS
