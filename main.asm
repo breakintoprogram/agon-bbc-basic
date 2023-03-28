@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	24/03/2023
+; Last Updated:	28/03/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -14,6 +14,7 @@
 ; 12/01/2023:	Added MOS C-style parameter processing routines and autoload functionality
 ; 26/02/2023:	Text in comments are not detokenised, Tweaks for *EDIT and OSLOAD_TXT
 ; 24/03/2023:	Removed TEST_FILENAME
+; 28/03/2023:	Tweaked for improved BYE command
 
 			.ASSUME	ADL = 0				
 
@@ -187,7 +188,9 @@ $$:			LD.LIL	A, (HL)			; Fetch the filename byte
 			LD	A, CR
 			LD	(DE), A			; Replace the 0 byte with a CR for BBC BASIC
 ;
-COLD:			LD      HL,STAVAR       	; Cold start
+COLD:			POP	HL			; Pop the return address to init off SPS
+			PUSH.LIL HL 			; Stack it on SPL (*BYE will use this as the return address)
+			LD      HL,STAVAR       	; Cold start
 			LD      SP,HL
 			LD      (HL),10
 			INC     L
