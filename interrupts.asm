@@ -2,12 +2,13 @@
 ; Title:	BBC Basic for AGON - Interrupts
 ; Author:	Dean Belfield
 ; Created:	06/05/2022
-; Last Updated:	28/03/2023
+; Last Updated:	30/03/2023
 ;
 ; Modinfo:
 ; 23/03/2023:		Added VBLANK_INIT and VBLANK_HANDLER
 ; 26/03/2023:		Fixed bug - MB changing in interrupt
 ; 28/03/2023:		Added VBLANK_STOP, removed MB bodge introduced in previous change
+; 30/03/2023:		Tweaked DO_KEYBOARD
 
 			.ASSUME	ADL = 0
 				
@@ -24,6 +25,7 @@
 			XREF	ESCSET	
 			XREF	KEYDOWN		; In ram.asm
 			XREF	KEYASCII 	; In ram.asm
+			XREF	KEYCOUNT	; In ram.asm
 
 ; Hook into the MOS VBLANK interrupt
 ;
@@ -76,12 +78,24 @@ SET_AHL16:		PUSH.LIL	HL
 ; A safe LIS call to ESCSET
 ; 
 DO_KEYBOARD:		MOSCALL		mos_sysvars			; Get the system variables
+			LD		HL, KEYCOUNT 			; Check whether the keycount has changed
+			LD.LIL		A, (IX + sysvar_vkeycount)	; by comparing the MOS copy
+			CP 		(HL)				; with our local copy
+			JR		NZ, DO_KEYBOARD_1		; Yes it has, so jump to the next bit
+;
+DO_KEYBOARD_0:		XOR		A 				; Clear the keyboard values 
+			LD		(KEYASCII), A
+			LD		(KEYDOWN), A 
+			RET.LIL 					; And return
+;
+DO_KEYBOARD_1:		LD		(HL), A 			; Store the updated local copy of keycount 
 			LD.LIL		A, (IX + sysvar_vkeydown)	; Fetch key down value (1 = key down, 0 = key up)
-			LD		(KEYDOWN), A 			; Store locally
 			OR		A 
-			JR		Z, $F 				; If it is key up, then skip to next bit
+			JR		Z, DO_KEYBOARD_0		; If it is key up, then clear the keyboard values
+;			
+			LD		(KEYDOWN), A 			; Store the keydown value
 			LD.LIL		A, (IX + sysvar_keyascii)	; Fetch key ASCII value
-$$:			LD		(KEYASCII), A 			; Store locally
+			LD		(KEYASCII), A 			; Store locally
 			CP		1Bh				; Is it escape?
 			CALL		Z, ESCSET			; Yes, so set the escape flags
 			RET.LIS						; Return to the interrupt handler
@@ -93,6 +107,7 @@ $$:			LD		(KEYASCII), A 			; Store locally
 
 VBLANK_HANDLER:		DI 
 			PUSH		AF 
+			PUSH		HL
 			PUSH		IX
 			LD		A, MB
 			PUSH		AF 
@@ -102,6 +117,7 @@ VBLANK_HANDLER_MB:	LD		A, 0				; This is self-modified by VBLANK_INIT
 			POP		AF
 			LD		MB, A
 			POP		IX 
+			POP		HL
 			POP		AF 
 ;
 ; Finally jump to the MOS interrupt
