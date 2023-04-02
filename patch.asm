@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	28/03/2023
+; Last Updated:	02/04/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -24,6 +24,7 @@
 ; 21/03/2023:	Added FX/OSBYTE functions for keyboard control, STAR_FX fixed to accept a single 16-bit parameter
 ; 25/03/2023:	Fixed range error in OSBYTE, now calls VBLANK_INIT in OSINIT, improved keyboard handling
 ; 28/03/2023:	Improved BYE command
+; 02/04/2023:	Various keyboard tweaks
 			
 			.ASSUME	ADL = 0
 				
@@ -123,7 +124,10 @@ OSLINE1:		PUSH	IY
 			LD	A, (FLAGS)		; Otherwise
 			RES	7, A 			; Clear the escape flag
 			LD	(FLAGS), A 
- 			XOR	A			; Return A = 0			
+			CALL	WAIT_VBLANK 		; Wait a frame 
+ 			XOR	A			; Return A = 0
+			LD	(KEYDOWN), A 
+			LD	(KEYASCII), A
 			RET		
 
 ; PUTIME: set current time to DE:HL, in centiseconds.
@@ -234,7 +238,10 @@ OSKEY:			CALL	READKEY			; Read the keyboard
 			CALL	WAIT_VBLANK 		; Wait a frame
 			DEC 	HL			; Decrement
 			JR	OSKEY 			; And loop
-$$:			CP	1BH			; If we are not pressing ESC, 
+;
+$$:			LD	HL, KEYDOWN		; We have a key, so 
+			LD	(HL), 0			; clear the keydown flag
+			CP	1BH			; If we are not pressing ESC, 
 			SCF 				; then flag we've got a character
 			RET	NZ		
 ;
