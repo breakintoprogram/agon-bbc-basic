@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	02/04/2023
+; Last Updated:	16/04/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -25,6 +25,7 @@
 ; 25/03/2023:	Fixed range error in OSBYTE, now calls VBLANK_INIT in OSINIT, improved keyboard handling
 ; 28/03/2023:	Improved BYE command
 ; 02/04/2023:	Various keyboard tweaks
+; 16/04/2023:	Implemented GETPTR, PUTPTR, GETEXT
 			
 			.ASSUME	ADL = 0
 				
@@ -404,7 +405,7 @@ STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"BBC BASIC (Agon) Version 1.04 RC3\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.04 RC4\n\r",0
 			RET
 	
 ; *EDIT linenum
@@ -861,14 +862,34 @@ OSSTAT:			PUSH	BC
 ; DEHL = pointer (0-&7FFFFF)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-GETPTR:			RET
+GETPTR:			PUSH		IY
+			LD		C, E 
+			MOSCALL		mos_getfil 	; HLU: Pointer to FIL structure
+			PUSH.LIL	HL
+			POP.LIL		IY		; IYU: Pointer to FIL structure
+			LD.LIL		L, (IY + FIL.fptr + 0)
+			LD.LIL		H, (IY + FIL.fptr + 1)
+			LD.LIL		E, (IY + FIL.fptr + 2)
+			LD.LIL		D, (IY + FIL.fptr + 3)
+			POP		IY
+			RET
 
 ; PUTPTR - Update file pointer.
 ;    A = file channel
 ; DEHL = new pointer (0-&7FFFFF)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-PUTPTR:			RET
+PUTPTR:			PUSH		IY 			
+			LD		C, A  		; C: Filehandle
+			PUSH.LIL	HL 		
+			LD.LIL		HL, 2
+			ADD.LIL		HL, SP
+			LD.LIL		(HL), E 	; 3rd byte of DWORD set to E
+			POP.LIL		HL
+			LD		E, D  		; 4th byte passed as E
+			MOSCALL		mos_flseek
+			POP		IY 
+			RET
 	
 ; GETEXT - Find file size.
 ;    E = file channel
@@ -876,7 +897,17 @@ PUTPTR:			RET
 ; DEHL = file size (0-&800000)
 ; Destroys: A,B,C,D,E,H,L,F
 ;
-GETEXT:			RET	
+GETEXT:			PUSH		IY 
+			LD		C, E 
+			MOSCALL		mos_getfil 	; HLU: Pointer to FIL structure
+			PUSH.LIL	HL
+			POP.LIL		IY		; IYU: Pointer to FIL structure
+			LD.LIL		L, (IY + FIL.obj.objsize + 0)
+			LD.LIL		H, (IY + FIL.obj.objsize + 1)
+			LD.LIL		E, (IY + FIL.obj.objsize + 2)
+			LD.LIL		D, (IY + FIL.obj.objsize + 3)			
+			POP		IY 
+			RET	
 
 ; GETIMS - Get time from RTC
 ;
