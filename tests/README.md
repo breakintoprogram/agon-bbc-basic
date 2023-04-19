@@ -3,6 +3,7 @@
 A handful of BBC BASIC programs I use for regression and soak testing:
 
 - `assembler_stub.bas`: A stubbed assembly file
+- `benchm9.bas`: Benchmark the file IO
 - `circle_1.bas`: Draws circles using filled triangles
 - `circle_2.bas`: Draws circle primitives
 - `cube.bas`: Tests the graphics and floating point maths
@@ -12,6 +13,8 @@ A handful of BBC BASIC programs I use for regression and soak testing:
 - `keyboard_1.bas`: Tests GET$
 - `lines.bas`: Tests the line drawing
 - `mandlebrot_1.bas`: A Mandlebrot set renderer
+- `mode_test_1.bas`: Check mode memory allocation is working correctly
+- `mode_test_2.bas`: Testcard to check resolution, colours, and monitor alignment
 - `palette_1.bas`: Displays the full colour palette
 - `rtc.bas`: Setting and getting the real-time clock
 - `scroll_1.bas`: Scrolling stars demo (requires VDP 1.02)
