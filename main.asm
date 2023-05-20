@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	28/03/2023
+; Last Updated:	19/05/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -15,6 +15,7 @@
 ; 26/02/2023:	Text in comments are not detokenised, Tweaks for *EDIT and OSLOAD_TXT
 ; 24/03/2023:	Removed TEST_FILENAME
 ; 28/03/2023:	Tweaked for improved BYE command
+; 19/05/2023:	Fixed bug in ONEDIT1 for OSLOAD_TXT
 
 			.ASSUME	ADL = 0				
 
@@ -257,11 +258,13 @@ CLOOP:			SCF				; See above - not sure why this is here!
 NOAUTO:			LD      HL,ACCS			; Storage for the line editor (256 bytes)
 			CALL    OSLINE          	; Call the line editor in MOS
 ONEDIT:			CALL	ONEDIT1			; Enter the line into memory
-			CALL    CLEAN			; Set TOP, write out &FFFF end of program marker
+			CALL    C,CLEAN			; Set TOP, write out &FFFF end of program marker
 			JP      CLOOP			; Jump back to immediate mode
 ;
 ; This bit enters the line into memory
 ; Also called from OSLOAD_TXT
+; Returns:
+; F: C if a new line has been entered (CLEAN will need to be called)
 ;
 ONEDIT1:		XOR     A			; Entry point after *EDIT
 			LD      (COUNT),A
@@ -301,7 +304,7 @@ LNZERO:			LD      DE,BUFFER		; Buffer for tokenised BASIC
 			POP     BC
 			LD      A,C			; Check for the line length being zero, i.e.
 			OR      A			; the user has just entered a line number in the command line
-			JP      Z,CLOOP         	; If so, then don't do anything else
+			RET	Z			; If so, then don't do anything else
 			ADD     A,4
 			LD      C,A             	; Length inclusive
 			PUSH    DE              	; DE: Line number (fetched from the call to FINDL)
@@ -343,6 +346,7 @@ ATEND:			POP     BC              	; BC: Line length
 			DEC     C			; compensate for the 3 bytes stored above (length and line number)
 			DEC     C	
 			LDIR                    	; Add the line to the BASIC program
+			SCF				; To flag we need to call CLEAN
 			RET
 ;
 ; List of tokens and keywords. If a keyword is followed by 0 then
