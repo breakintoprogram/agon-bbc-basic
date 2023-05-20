@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON - Graphics stuff
 ; Author:	Dean Belfield
 ; Created:	07/08/2022
-; Last Updated:	21/03/2023
+; Last Updated:	19/05/2023
 ;
 ; Modinfo:
 ; 19/08/2022:	Added GETSCHR, POINT
@@ -11,6 +11,7 @@
 ; 04/03/2023:	Updated POINT to return colour index, not RGB
 ; 12/03/2023:	Palette change now supports COLOUR l, p syntax
 ; 21/03/2023:	Now uses vdp defines
+; 19/05/2023:	Refactored GETSCHR for OSBYTE_87
 
 
 			
@@ -32,6 +33,7 @@
 			XDEF	DRAW
 			XDEF	POINT
 			XDEF	GETSCHR
+			XDEF	GETSCHR_1
 			
 			XREF	OSWRCH
 			XREF	ASC_TO_NUMBER
@@ -78,23 +80,32 @@ $$:			BIT.LIL	4, (IX+sysvar_vpd_pflags)
 GETSCHR:		INC	IY
 			CALL    EXPRI      		; Get X coordinate
 			EXX
-			LD	(VDU_BUFFER+0), HL
+			PUSH	HL			; Stack X
 			CALL	COMMA		
 			CALL	EXPRI			; Get Y coordinate
 			EXX 
-			LD	(VDU_BUFFER+2), HL
-			CALL	BRAKET			; Closing bracket		
+			CALL	BRAKET			; Closing bracket	
+			POP	DE			; Pop X back into DE
+			CALL	GETSCHR_1
+			JP	INKEY1	
 ;
-			PUSH	IX			; Get the system vars in IX
+; Fetch a character from the screen
+; - DE: X coordinate
+; - HL: Y coordinate
+; Returns
+; - A: The character or FFh if no match
+; - F: C if match, otherwise NC
+;
+GETSCHR_1:		PUSH	IX			; Get the system vars in IX
 			MOSCALL	mos_sysvars		; Reset the semaphore
 			RES.LIL	1, (IX+sysvar_vpd_pflags)
 			VDU	23
 			VDU	0
 			VDU	vdp_scrchar
-			VDU	(VDU_BUFFER+0)
-			VDU	(VDU_BUFFER+1)
-			VDU	(VDU_BUFFER+2)
-			VDU	(VDU_BUFFER+3)
+			VDU	E 
+			VDU	D 
+			VDU	L 
+			VDU	H 
 $$:			BIT.LIL	1, (IX+sysvar_vpd_pflags)
 			JR	Z, $B			; Wait for the result
 			LD.LIL	A, (IX+sysvar_scrchar)	; Fetch the result in A
@@ -102,9 +113,8 @@ $$:			BIT.LIL	1, (IX+sysvar_vpd_pflags)
 			SCF				; C = character map
 			JR	NZ, $F			; We have a character, so skip next bit
 			XOR	A			; Clear carry
-			DEC	A			; Set A to FFh
 $$:			POP	IX			
-			JP	INKEY1			; Jump back to the GET command
+			RET 
 
 ; POINT(x,y): Get the pixel colour of a point on screen
 ;
