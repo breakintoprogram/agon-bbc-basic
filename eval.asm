@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	19/08/2022
+; Last Updated:	19/05/2022
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -14,6 +14,7 @@
 ; 03/05/2022:	Modified by Dean Belfield to assemble with ZDS
 ; 26/07/2022:	Fixed bug with INT caused when converting source to run on ZDS
 ; 19/08/2022:	INKEY1 is now XREFd
+; 19/05/2023:	Added COUNT1 to XDEF and call to GETPORT for GET(x,y)
 
 			.ASSUME	ADL = 0
 
@@ -46,6 +47,8 @@
 			XDEF	BRAKET
 			XDEF	NXT
 			XDEF	COUNT0
+			XDEF	COUNT1
+			XDEF	TRUE
 				
 			XREF	ADVAL
 			XREF	FN
@@ -81,6 +84,7 @@
 			XREF	OSRDCH
 			XREF	OSKEY
 			XREF	INKEY1
+			XREF	GETPORT
 ;
 ; BINARY FLOATING POINT REPRESENTATION:
 ;    32 BIT SIGN-MAGNITUDE NORMALIZED MANTISSA
@@ -665,13 +669,14 @@ INKEY:			CALL    INKEYS
 			JR      ASC0
 GET:			CALL    NXT
 			CP      '('
-			JR      NZ,GET0
-			CALL    ITEMI           ;PORT ADDRESS
-			EXX
-			LD      B,H
-			LD      C,L
-			IN      L,(C)           ;INPUT FROM PORT BC
-			JR      COUNT0
+;			JR      NZ,GET0
+;			CALL    ITEMI           ;PORT ADDRESS
+;			EXX
+;			LD      B,H
+;			LD      C,L
+;			IN      L,(C)           ;INPUT FROM PORT BC
+;			JR      COUNT0
+			JP	Z, GETPORT	;NEW CODE IN PATCH.Z80
 GET0:			CALL    GETS
 			JR      ASC1
 ASC:			CALL    ITEMS
