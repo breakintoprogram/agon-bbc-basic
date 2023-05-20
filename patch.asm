@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	16/04/2023
+; Last Updated:	19/05/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -26,6 +26,7 @@
 ; 28/03/2023:	Improved BYE command
 ; 02/04/2023:	Various keyboard tweaks
 ; 16/04/2023:	Implemented GETPTR, PUTPTR, GETEXT
+; 19/05/2023:	Updated STAR_VERSION TO 1.05, Added OSBYTE_87, Fixed bug in OSLOAD_TXT, implemented GET(x,y)
 			
 			.ASSUME	ADL = 0
 				
@@ -63,6 +64,7 @@
 			XDEF	OSLOAD
 			XDEF	OSSAVE
 			XDEF	EXPR_W2
+			XDEF	GETPORT
 
 			XREF	ASC_TO_NUMBER
 			XREF	RAM_START
@@ -73,6 +75,7 @@
 			XREF	RAM_Top
 			XREF	EXTERR
 			XREF	COUNT0
+			XREF	COUNT1
 			XREF	EXPRI
 			XREF	COMMA
 			XREF	XEQ
@@ -103,6 +106,9 @@
 			XREF	VBLANK_STOP
 			XREF	KEYDOWN
 			XREF	KEYASCII
+			XREF	GETSCHR_1
+			XREF	BRAKET
+			XREF	TRUE 
 
 ; OSLINE: Invoke the line editor
 ;
@@ -405,7 +411,7 @@ STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"BBC BASIC (Agon) Version 1.04\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.05 RC1\n\r",0
 			RET
 	
 ; *EDIT linenum
@@ -468,7 +474,9 @@ OSBYTE:			CP	0BH			; *FX 11, n: Keyboard auto-repeat delay
 			JR	Z, OSBYTE_13		
 			CP	76H			; *FX 118, n: Set keyboard LED
 			JR	Z, OSBYTE_76
-			CP	A0H
+			CP	87H			
+			JP	Z, OSBYTE_87
+			CP	A0H			
 			JP	Z, OSBYTE_A0		
 			JP	HUH			; Anything else trips an error
 
@@ -527,6 +535,17 @@ OSBYTE_76:		VDU	23
 			VDU	0 
 			VDU	L
 			RET 
+
+; OSBYTE 0x87: Fetch current mode and character under cursor
+;
+OSBYTE_87:		PUSH	IX
+			CALL	GETCSR			; Get the current screen position
+			CALL	GETSCHR_1		; Read character from screen
+			LD	L, A 
+			MOSCALL	mos_sysvars
+			LD.LIL	H, (IX+sysvar_scrMode)	; H: Screen mode
+			POP	IX
+			JP	COUNT1
 			
 ; OSBYTE 0xA0: Fetch system variable
 ; Parameters:
@@ -601,7 +620,7 @@ OSLOAD_TXT2:		CALL	OSBGET			; Check for LF
 			JR	C, $F			; Then don't bother entering it
 			PUSH	DE			; Preserve the filehandle
 			CALL	ONEDIT1			; Enter the line in memory
-			CALL	CLEAN
+			CALL	C,CLEAN			; If a new line has been entered, then call CLEAN to set TOP and write &FFFF end of program marker
 			POP	DE
 $$:			CALL	OSSTAT			; End of file?
 			JR	NZ, OSLOAD_TXT1		; No, so loop
@@ -917,8 +936,35 @@ GETIMS:			PUSH	IY
 			LD	DE, ACCS		; DE: pointer to start of string accumulator
 			LD	E, A 			;  E: now points to the end of the string
 			POP	IY
-			RET 
-	
+			RET
+
+; GET(port) - Read eZ80 port
+; GET(x, y) - Read character from screen position (x, y)
+; Called from GET in eval.asm
+;
+GETPORT:		INC	IY			; Skip '('
+			CALL    EXPRI         	  	; Get the first parameter
+			EXX
+			PUSH	HL
+			CALL	NXT
+			CP	','			; If there is no comma, then do GET(port)
+			JR	NZ, GETPORT1
+;
+			CALL	COMMA			; Get the second parameter
+			CALL	EXPRI
+			EXX 
+			POP	DE 			; DE: X coordinate 
+			CALL 	GETSCHR_1		; Read the character
+			LD	L, A			; Character code, or 0 if no match
+			JR	C, GETPORT3		; Carry is set, so we have a character
+			CALL	BRAKET			; Check for second bracket
+			JP	TRUE			; Return -1
+;
+GETPORT1:		POP	BC 			; Port # in BC
+			IN	L, (C)			; Read the port
+GETPORT3:		CALL	BRAKET			; Handle the trailing bracket
+			JP	COUNT0			; Return the value
+
 ; Get two word values from EXPR in DE, HL
 ; IY: Pointer to expression string
 ; Returns:
