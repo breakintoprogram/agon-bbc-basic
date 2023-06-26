@@ -85,6 +85,7 @@
 			XREF	OSKEY
 			XREF	INKEY1
 			XREF	GETPORT
+			XREF	KBSTATE
 ;
 ; BINARY FLOATING POINT REPRESENTATION:
 ;    32 BIT SIGN-MAGNITUDE NORMALIZED MANTISSA
@@ -1144,6 +1145,8 @@ GET1:			SCF
 ;
 INKEYS:			CALL    ITEMI
 			EXX
+			BIT 7,H
+			JR NZ, INKEY_NEG
 			CALL    OSKEY
 INKEY1:			LD      DE,ACCS
 			LD      (DE),A
@@ -1151,6 +1154,22 @@ INKEY1:			LD      DE,ACCS
 			RET     NC
 			INC     E
 			RET
+; negative INKEY argument: See if that key is currently down
+INKEY_NEG:
+			XOR		A
+			LD 		H, A
+			SUB		L		; +ve keycode in A
+			LD		L, A
+			LD		B, A
+			LD		DE, KBSTATE
+			ADD		HL, DE
+			LD		A, (HL)	; non-zero if key is pressed
+			OR		A
+			SCF
+			JR		Z, INKEY1
+			LD		A, B
+			JP		INKEY1
+
 ;
 ;MID$ - Return sub-string.
 ;Result is string.

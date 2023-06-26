@@ -65,6 +65,7 @@
 			XDEF	OSSAVE
 			XDEF	EXPR_W2
 			XDEF	GETPORT
+			XDEF	KBSTATE
 
 			XREF	ASC_TO_NUMBER
 			XREF	RAM_START
@@ -302,13 +303,64 @@ LTRAP1:			LD	HL,FLAGS 		; Escape is pressed at this point, so
 ;            Z-flag reset indicates AUTO-RUN.
 ;  Destroys: A,D,E,H,L,F
 ;
-OSINIT:			CALL	VBLANK_INIT
+OSINIT:			CALL	VBLANK_INIT 
+			CALL KBVECTOR_INIT
 			XOR	A
 			LD	(FLAGS), A		; Clear flags and set F = Z
 			LD 	HL, USER
 			LD	DE, RAM_Top
 			LD	E, A			; Page boundary
 			RET	
+
+KBVECTOR_STOP:
+			LD.L HL, 0
+			LD C,0  ; do not extend HL with MB: we want it zeroed
+			LD A, 1Dh
+			RST.LIS 8
+			RET
+
+KBVECTOR_INIT:
+			LD HL,KBVECTOR
+			LD C,1  ; extend HL to 24-bits using MB
+			LD A,1Dh
+			RST.LIS 8
+			RET
+
+			.ASSUME	ADL = 1
+KBVECTOR:
+			PUSH IY
+			PUSH IX
+			PUSH DE
+			POP IX
+			
+			LD.SIS DE,0
+			LD.SIS HL,KBSTATE
+			LD E, (IX+2)				; key code
+			
+			; coerce upper case letters to lower case, otherwise there are issues with stuck keys when shift is used
+			LD A,E
+			SUB 48
+			JR C, $F
+			CP 26
+			JR NC, $F
+			LD A, E
+			SUB 26
+			LD E, A
+			
+$$:
+			ADD.S HL,DE
+			
+			LD A, (IX+3)				; key down
+			LD.SIS (HL),A
+			
+			POP IX
+			POP IY
+			RET
+
+			.ASSUME	ADL = 0
+
+KBSTATE:
+			DS 256
 
 ;
 ;OSCLI - Process a MOS command
@@ -404,6 +456,7 @@ COMDS:  		DB	'BY','E'+80h		; BYE
 ; *BYE
 ;
 STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
+			CALL	KBVECTOR_STOP
 			POP.LIL	IX 			; The return address to init
 			LD	HL, 0			; The return code
 			JP	(IX)
