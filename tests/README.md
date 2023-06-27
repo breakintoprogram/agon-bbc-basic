@@ -29,6 +29,7 @@ A handful of BBC BASIC programs I use for regression and soak testing:
 - `sysvars.bas`: Using OSBYTE &A0 to fetch a MOS system variable (first 2 bytes of sysvar_time)
 - `triangles.bas`: Tests the filled triangle drawing
 - `udg.bas` Defines UDGs using VDU 23
+- `viewport.bas`: Text viewport example using VDU 28
 
 And there are also a set of Rugg/Feldman (PCW) benchmark programs; benchm1.bas to benchm8.bas
 
