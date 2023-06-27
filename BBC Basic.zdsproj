@@ -25,7 +25,7 @@
 <tool name="Assembler">
 <options>
 <option name="define" type="string" change-action="assemble">_EZ80ACCLAIM!=1,_SIMULATE=1</option>
-<option name="include" type="string" change-action="assemble">..\MOS\src</option>
+<option name="include" type="string" change-action="assemble">..\agon"-"mos\src</option>
 <option name="list" type="boolean" change-action="none">true</option>
 <option name="listmac" type="boolean" change-action="none">false</option>
 <option name="name" type="boolean" change-action="none">true</option>
@@ -118,7 +118,7 @@ COPY LORAM RAM</option>
 <tool name="Assembler">
 <options>
 <option name="define" type="string" change-action="assemble">_EZ80ACCLAIM!=1,_SIMULATE=1</option>
-<option name="include" type="string" change-action="assemble">..\MOS\src</option>
+<option name="include" type="string" change-action="assemble">..\agon"-"mos\src</option>
 <option name="list" type="boolean" change-action="none">true</option>
 <option name="listmac" type="boolean" change-action="none">false</option>
 <option name="name" type="boolean" change-action="none">true</option>
@@ -214,13 +214,6 @@ COPY LORAM RAM</option>
 
 <!-- breakpoint information -->
 <breakpoints>
-<breakpoint temporary="false" enabled="true" >
-<line-number>0</line-number>
-<pathname></pathname>
-<address>266172</address>
-<command></command>
-<preserve-type>1</preserve-type>
-</breakpoint>
 </breakpoints>
 
 </project>
