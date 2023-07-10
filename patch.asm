@@ -411,7 +411,7 @@ STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"BBC BASIC (Agon) Version 1.05 RC1\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.05\n\r",0
 			RET
 	
 ; *EDIT linenum
