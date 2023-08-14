@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	19/05/2022
+; Last Updated:	14/08/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -15,11 +15,14 @@
 ; 26/07/2022:	Fixed bug with INT caused when converting source to run on ZDS
 ; 19/08/2022:	INKEY1 is now XREFd
 ; 19/05/2023:	Added COUNT1 to XDEF and call to GETPORT for GET(x,y)
+; 14/08/2023:	Added INKEY(-n) support (requires MOS 1.04)
 
 			.ASSUME	ADL = 0
 
 			INCLUDE	"equs.inc"
-
+			INCLUDE "macros.inc"
+			INCLUDE "mos_api.inc"	; In MOS/src
+			
 			SEGMENT CODE
 				
 			XDEF	EXPR
@@ -661,28 +664,25 @@ EOF:			CALL    CHANEL
 			CALL    OSSTAT
 			JP      Z,TRUE
 			JP      ZERO
-BGET:			CALL    CHANEL          ;CHANNEL NUMBER
+BGET:			CALL    CHANEL          	; Channel number
 			CALL    OSBGET
 			LD      L,A
 			JR      COUNT0
-INKEY:			CALL    INKEYS
-			JR      ASC0
+INKEY:			CALL    ITEMI			; Get the argument
+			BIT	7, H			; Check the sign
+			EXX				; HL: The argument
+			JP	NZ, INKEYM		; It's negative, so do INKEY(-n)
+			CALL	INKEY0 			; Do INKEY(n)
+			JR      ASC0			; Return a numeric value
 GET:			CALL    NXT
 			CP      '('
-;			JR      NZ,GET0
-;			CALL    ITEMI           ;PORT ADDRESS
-;			EXX
-;			LD      B,H
-;			LD      C,L
-;			IN      L,(C)           ;INPUT FROM PORT BC
-;			JR      COUNT0
-			JP	Z, GETPORT	;NEW CODE IN PATCH.Z80
+			JP	Z, GETPORT		; New code in patch.z80
 GET0:			CALL    GETS
 			JR      ASC1
 ASC:			CALL    ITEMS
 ASC0:			XOR     A
 			CP      E
-			JP      Z,TRUE          ;NULL STRING
+			JP      Z,TRUE          	; Null string
 ASC1:			LD      HL,(ACCS)
 			JR      COUNT0
 LEN:			CALL    ITEMS
@@ -695,9 +695,9 @@ HIMEMV:			LD      HL,(HIMEM)
 PAGEV:			LD      HL,(PAGE_)
 			JR      COUNT1
 TOPV:			LD      A,(IY)
-			INC     IY              ;SKIP "P"
+			INC     IY              	; SKIP "P"
 			CP      'P'
-			JP      NZ,SYNTAX       ;"Syntax Error"
+			JP      NZ,SYNTAX       	; Throw "Syntax Error"
 			LD      HL,(TOP)
 			JR      COUNT1
 ERLV:			LD      HL,(ERL)
@@ -708,7 +708,7 @@ COUNTV:			LD      HL,(COUNT)
 COUNT0:			LD      H,0
 COUNT1:			EXX
 			XOR     A
-			LD      C,A             ;INTEGER MARKER
+			LD      C,A             	; Integer marker
 			LD      H,A
 			LD      L,A
 			RET
@@ -1137,20 +1137,56 @@ GETS:			CALL	NXT		;NEW CODE FOR GET$(X,Y)
 GET1:			SCF
 			JR      INKEY1
 ;
-;INKEYS - Wait up to n centiseconds for keypress.
-;         Return key pressed as string or null
-;         string if time elapsed.
-;Result is string.
+; INKEYS - Wait up to n centiseconds for keypress.
+;          Return key pressed as string or null
+;          string if time elapsed.
+; Result is string.
 ;
-INKEYS:			CALL    ITEMI
+INKEYS:			CALL    ITEMI			; Fetch the argument	
 			EXX
-			CALL    OSKEY
-INKEY1:			LD      DE,ACCS
+INKEY0:			CALL    OSKEY			; This is the entry point for INKEY(n)
+INKEY1:			LD      DE,ACCS			; Store the result in the string accumulator
 			LD      (DE),A
 			LD      A,80H
 			RET     NC
 			INC     E
 			RET
+;
+; INKEYM - Check immediately whether a given key is being pressed
+; Result is integer numeric
+;
+INKEYM:			MOSCALL	mos_getkbmap		; Get the base address of the keyboard
+			INC	HL			; Index from 0
+			LD	A, L			; Negate the LSB of the answer
+			NEG
+			LD	C, A			;  E: The positive keycode value
+			LD	A, 1			; Throw an "Out of range" error
+			JP	M, ERROR_		; if the argument < - 128
+;
+			LD	HL, BITLOOKUP		; HL: The bit lookup table
+			LD	DE, 0
+			LD	A, C
+			AND	00000111b		; Just need the first three bits
+			LD	E, A			; DE: The bit number
+			ADD	HL, DE
+			LD	B, (HL)			;  B: The mask
+;
+			LD	A, C			; Fetch the keycode again
+			AND	01111000b		; And divide by 8
+			RRCA
+			RRCA
+			RRCA
+			LD	E, A			; DE: The offset (the MSW has already been cleared previously)
+			ADD.LIL	IX, DE			; IX: The address
+			LD.LIL	A, (IX+0)		;  A: The keypress
+			AND	B			; Check whether the bit is set
+			JP	Z, ZERO			; No, so return 0
+			JP	TRUE			; Otherwise return -1
+;
+; A bit lookup table
+;
+BITLOOKUP:		DB	01h, 02h, 04h, 08h
+			DB	10h, 20h, 40h, 80h			
 ;
 ;MID$ - Return sub-string.
 ;Result is string.
