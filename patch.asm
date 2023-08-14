@@ -2,7 +2,7 @@
 ; Title:	BBC Basic for AGON
 ; Author:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	19/05/2023
+; Last Updated:	14/08/2023
 ;
 ; Modinfo:
 ; 24/07/2022:	OSWRCH and OSRDCH now execute code in MOS
@@ -16,7 +16,7 @@
 ; 11/10/2022:	Fixed bug introduced in previous fix to OSBYTE_13, OSCLI now calls MOS
 ; 20/10/2022:	ESC in GET now works, tidied up error handling in OSCLI
 ; 11/01/2023:	Added default .BBC extension to OSLOAD and OSSAVE, STAR_VERSION
-; 15/02/2023:	Updated STAR_VERSION TO 1.04
+; 15/02/2023:	Updated STAR_VERSION to 1.04
 ; 26/02/2023:	Fixed STAR_EDIT to use LISTIT instead of duplicated code, added OSBYTE_A0, tweaked OSWRCH, SAVE and LOAD as text files
 ; 03/03/2023:	Addd .BAS extension for LOAD/SAVE, improvements to OSLOAD_TXT
 ; 11/03/2023:	Improved keyboard handling (GET, INKEY$)
@@ -26,7 +26,8 @@
 ; 28/03/2023:	Improved BYE command
 ; 02/04/2023:	Various keyboard tweaks
 ; 16/04/2023:	Implemented GETPTR, PUTPTR, GETEXT
-; 19/05/2023:	Updated STAR_VERSION TO 1.05, Added OSBYTE_87, Fixed bug in OSLOAD_TXT, implemented GET(x,y)
+; 19/05/2023:	Updated STAR_VERSION to 1.05, Added OSBYTE_87, Fixed bug in OSLOAD_TXT, implemented GET(x,y)
+; 14/08/2023:	Updated STAR_VERSION to 1.06, Implemented INKEY(-n)
 			
 			.ASSUME	ADL = 0
 				
@@ -411,7 +412,7 @@ STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"BBC BASIC (Agon) Version 1.05\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.06\n\r",0
 			RET
 	
 ; *EDIT linenum
