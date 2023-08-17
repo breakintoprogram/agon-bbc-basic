@@ -558,24 +558,26 @@ NOS1:			INC     IY
 ;           A7 = 1 (string marker)
 ;           IY updated
 ;
-CONS:			LD      DE,ACCS
-CONS3:			LD      A,(IY)
-			INC     IY
-			CP      34		;ASCII ""
-			JR      Z,CONS2
-CONS1:			LD      (DE),A
-			INC     E
-			CP      CR
-			JR      NZ,CONS3
-			LD      A,9
-ERROR0:			JP      ERROR_           ;"Missing """
+CONS:			LD      DE,ACCS			; DE: Pointer to the string accumulator
+CONS3:			LD      A,(IY)			; Fetch the first character and
+			INC     IY			; Increment the pointer
+			CP      '"'			; Check for start quote
+			JR      Z,CONS2			; Yes, so jump to the bit that parses the string
 ;
-CONS2:			LD      A,(IY)
-			CP      34H		;ASCII "
-			INC     IY
-			JR      Z,CONS1
-			DEC     IY
-			LD      A,80H           ;STRING MARKER
+CONS1:			LD      (DE),A			; Store the character in the string accumulator
+			INC     E			; Increment the string accumulator pointer
+			CP      CR			; Is it CR
+			JR      NZ,CONS3		; No, so keep looping
+;
+			LD      A,9
+ERROR0:			JP      ERROR_           	; Throw error "Missing '"'
+;
+CONS2:			LD      A,(IY)			; Fetch the next character
+			CP      '"'			; Check for end quote?
+			INC     IY			; Increment the pointer
+			JR      Z,CONS1			; It is the end of string marker so jump to the end routine
+			DEC     IY			; 
+			LD      A,80H           	; String marker
 			RET
 ;
 ;CON - Get unsigned numeric constant from ASCII string.
