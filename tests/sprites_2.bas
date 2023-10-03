@@ -1,6 +1,6 @@
    10 REM Sprite Demo
    20 :
-   30 MODE 2
+   30 MODE 8
    40 SW%=320
    50 SH%=200
    60 C%=16
@@ -12,7 +12,7 @@
   120 VDU 23,27,1,W%;H%;
   130 FOR I%=1 TO W%*H%
   140   READ B%
-  150   VDU B%,B%,B%,B%
+  150   VDU 255,B%,B%,B%
   160 NEXT
   170 :
   180 REM Set up some sprites

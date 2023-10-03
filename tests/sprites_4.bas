@@ -1,6 +1,6 @@
    10 REM Sprite Demo
    20 :
-   30 MODE 1
+   30 MODE 0
    40 SW%=320
    50 SH%=200
    60 C%=32
@@ -93,7 +93,7 @@
   930 PROCloadSprite("../resources/pacman1.rgb",0,16,16)
   940 PROCloadSprite("../resources/pacman2.rgb",1,16,16)
   950 :
-  960 MODE 2
+  960 MODE 8
   970 :
   980 REM Set up some sprites
   990 :

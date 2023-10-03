@@ -1,0 +1,7 @@
+   10 CLS
+   20 PRINT TAB(0,0);
+   30 PRINT "UP ";INKEY(-58);" "
+   40 PRINT "DOWN ";INKEY(-42);" "
+   50 PRINT "LEFT ";INKEY(-26);" "
+   60 PRINT "RIGHT ";INKEY(-122);" "
+   70 GOTO 20

@@ -1,6 +1,6 @@
    10 REM Sprite Demo
    20 :
-   30 MODE 1
+   30 MODE 0
    40 SW%=320
    50 SH%=200
    60 C%=64
@@ -81,7 +81,7 @@
   810   ]
   820 NEXT
   830 :
-  840 MODE 2
+  840 MODE 8
   850 :
   860 REM Create a simple bitmap
   870 :

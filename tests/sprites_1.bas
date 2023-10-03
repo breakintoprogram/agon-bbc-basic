@@ -1,6 +1,6 @@
    10 REM Sprite Demo
    20 :
-   30 MODE 2
+   30 MODE 8
    40 SW%=320
    50 SH%=200
    60 C%=16

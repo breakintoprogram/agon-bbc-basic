@@ -1,6 +1,6 @@
    10 REM Palette Test
    20 :
-   30 MODE 2
+   30 MODE 8
    40 FOR A%=128 TO 143
    50   COLOUR A%
    60   PRINT "  ";
