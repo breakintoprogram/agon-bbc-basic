@@ -18,7 +18,7 @@ As an aside, R.T.Russell still supports BBC Basic, and has ported it for a numbe
 
 I've worked with Bernardo Kastrup aka The Byte Attic on another one of his projects, porting BBC Basic for Z80 to the Cerberus 2080. When he decided to design the Agon, he asked me whether I'd be interested in providing the firmware for it.
 
-### Assembling and Running
+### Assembling
 
 This project is designed to be assembled and linked using the Zilog ZDS II toolkit - see the [readme](https://github.com/breakintoprogram/agon-mos/blob/main/README.md#build) in MOS for more details.
 
@@ -26,7 +26,16 @@ NB:
 - The project is configured to download this to RAM at &40000 via the ZDS cable
 - Source level debugging not working correctly as this runs in a 64K Z80 segment in the eZ80 RAM
 
-Of course you can just copy the latest bbcbasic.bin file to the Agon SD card
+### Loadig BBC Basic for Z80 on the Agon
+
+1. Download the binary bbcbasic.bin from [agon-bbc-basic releases](https://github.com/breakintoprogram/agon-bbc-basic/releases)
+2. Copy it to the root directory of the Agon SD card
+3. Insert the SD card into the AGON and reset/boot it
+5. In the Agon MOS, check the file is on the SD card with a `CAT` or `.` command
+6. Type the following commands:
+	- `LOAD bbcbasic.bin`
+	- `RUN`
+7. You should then be greeted with the BBC Basic for Z80 prompt
 
 ### Documentation
 
