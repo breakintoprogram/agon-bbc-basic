@@ -4,7 +4,7 @@
 ; Author:	(C) Copyright  R.T.Russell  1984
 ; Modified By:	Dean Belfield
 ; Created:	03/05/2022
-; Last Updated:	19/05/2023
+; Last Updated:	15/11/2023
 ;
 ; Modinfo:
 ; 07/05/1984:	Version 2.3
@@ -16,6 +16,7 @@
 ; 24/03/2023:	Removed TEST_FILENAME
 ; 28/03/2023:	Tweaked for improved BYE command
 ; 19/05/2023:	Fixed bug in ONEDIT1 for OSLOAD_TXT
+; 15/11/2023:	Startup message now includes Agon version
 
 			.ASSUME	ADL = 0				
 
@@ -113,6 +114,7 @@
 			XREF	OSWRCHCH
 			XREF	NEWIT
 			XREF	BAD
+			XREF	STAR_VERSION
 ;
 ; A handful of common token IDs
 ;
@@ -171,10 +173,10 @@ _main:			LD	HL, ACCS		; Clear the ACCS
 			CP	2
 			JR	Z, AUTOLOAD		; 2 parameters = autoload
 			JR	C, COLD			; 1 parameter = normal start
+			CALL	STAR_VERSION		; Output the AGON version
 			CALL	TELL
-			DB	"BBC BASIC\n\r"
 			DB	"Usage:\n\r"
-			DB	"RUN address <filename>\n\r", 0
+			DB	"RUN . <filename>\n\r", 0
 			LD	HL, 0			; The error code
 			RET
 ;							
@@ -213,6 +215,7 @@ PURGE:			LD      (HL),A          	; Clear scratchpad
 			LD	A,(ACCS)		; Check if there is a filename in ACCS
 			OR	A
 			JP	NZ,CHAIN0		; Yes, so load and run
+			CALL	STAR_VERSION		; Output the AGON version
 			CALL    TELL			; Output the welcome message
 			DB    	"BBC BASIC (Z80) Version 3.00\n\r"
 NOTICE:			DB    	"(C) Copyright R.T.Russell 1987\n\r"

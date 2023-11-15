@@ -67,6 +67,7 @@
 			XDEF	OSSAVE
 			XDEF	EXPR_W2
 			XDEF	GETPORT
+			XDEF	STAR_VERSION
 
 			XREF	ASC_TO_NUMBER
 			XREF	RAM_START
@@ -413,7 +414,7 @@ STAR_BYE:		CALL	VBLANK_STOP		; Restore MOS interrupts
 ; *VERSION
 ;
 STAR_VERSION:		CALL    TELL			; Output the welcome message
-			DB    	"BBC BASIC (Agon) Version 1.06\n\r",0
+			DB    	"BBC BASIC (Agon) Version 1.07\n\r",0
 			RET
 	
 ; *EDIT linenum
