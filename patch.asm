@@ -635,10 +635,12 @@ $$:			CALL	OSSTAT			; End of file?
 ;
 ; Special case for BASIC programs with no blank line at the end
 ;
-OSLOAD_TXT4:		LD	(HL), A			; Store the character
+OSLOAD_TXT4:		CP	20h			; Skip if not an ASCII character
+			JR	C, $F
+			LD	(HL), A			; Store the character
 			INC	L
 			JP	Z, BAD
-			JR	OSLOAD_TXT3
+$$:			JR	OSLOAD_TXT3
 
 ;
 ; Load the file in as a tokenised binary blob
